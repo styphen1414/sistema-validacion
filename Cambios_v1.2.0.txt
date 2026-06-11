@@ -1,0 +1,66 @@
+======================================================================
+SISTEMA DE VALIDACION TECNICA (SVT) - NOTAS DE CAMBIOS VERSION 1.2.0
+======================================================================
+
+Fecha: 11 de Junio, 2026
+Autor: Antigravity AI & David Paredes
+Version: 1.2.0 (Rendimiento, Escalabilidad y Paginacion)
+
+----------------------------------------------------------------------
+DESCRIPCION GENERAL
+----------------------------------------------------------------------
+Esta version implementa la optimizacion del rendimiento del sistema
+al migrar la bandeja de entrada de solicitudes (inbox) de una carga
+masiva en el cliente a una paginacion, filtrado y busqueda procesados
+completamente en el servidor (Base de Datos PostgreSQL). 
+
+Esto soluciona los problemas de latencia y sobrecarga de memoria cuando
+el sistema cuenta con un volumen alto de solicitudes.
+
+----------------------------------------------------------------------
+CAMBIOS REALIZADOS
+----------------------------------------------------------------------
+
+1. BACKEND (server.js):
+   - Refactorizacion del endpoint 'GET /api/solicitudes'.
+   - Soporte para parametros de consulta en la URL (Query params):
+     * 'page'  : Numero de pagina activa (por defecto 1).
+     * 'limit' : Cantidad de registros por pagina (por defecto 10).
+     * 'estado': Filtro por estado especifico (borrador, en_revision, 
+                 observado, aprobado).
+     * 'search': Criterio de busqueda textual.
+   - Construccion dinamica de consultas SQL parametrizadas para evitar
+     inyeccion SQL.
+   - Consulta de conteo (COUNT DISTINCT) para determinar el total de 
+     paginas dinamicamente.
+   - Limitacion de consultas en base de datos mediante clausulas LIMIT
+     y OFFSET sobre solicitudes reales.
+   - Mantenimiento estricto de las reglas de control de accesos y roles 
+     (administradores, técnicos con/sin asignacion automatica, y
+     solicitantes).
+
+2. FRONTEND (public/app.js):
+   - Registro en el objeto global 'window' de las funciones de control
+     de paginas e interaccion interactiva:
+     * 'cambiarPagina(nuevaPagina)'
+     * 'debouncedBuscar()'
+   - Esto permite que los controladores onclick y oninput del HTML
+     invocados desde el DOM actualicen la bandeja del cliente sin fallar.
+
+3. FRONTEND (public/index.html):
+   - Contenedor de controles de paginacion ('#paginacion-container') y
+     contador de registros ('#paginacion-info') implementado al pie de 
+     la tabla.
+   - Vinculacion del buscador ('#buscador-solicitudes') al debounce del
+     cliente (oninput) para optimizar las peticiones concurrentes.
+
+----------------------------------------------------------------------
+COMO DESPLEGAR / ACTUALIZAR
+----------------------------------------------------------------------
+1. Descargar los cambios desde la rama principal (main) o el tag '1.2.0'.
+2. Ejecutar 'npm install' si hay dependencias adicionales (no requeridas
+   para esta version).
+3. Iniciar el servidor con 'npm run dev'.
+4. La bandeja de solicitudes ahora cargara de forma progresiva en bloques
+   de 10 registros, con busqueda y filtros habilitados en tiempo real.
+======================================================================
