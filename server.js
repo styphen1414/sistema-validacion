@@ -1081,7 +1081,6 @@ function generarReportePDFInternal(doc, solicitud, aprobaciones, directorSigner)
 
       // DISEÑO DEL PDF Y CONFIGURACIONES
     const logoPath = path.join(__dirname, 'public', 'logo.png');
-    // const fs = require('fs');
 
     // Funciones auxiliares locales para maquetación limpia
     const renderSectionHeader = (titleText) => {
