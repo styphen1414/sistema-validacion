@@ -6,6 +6,13 @@ let filtroEstadoActual = 'todos';
 let activeSolicitudId = null;
 let autoRefreshInterval = null;
 
+// Paginación y búsqueda de solicitudes
+let paginaActual = 1;
+let limitePagina = 10;
+let totalPaginas = 1;
+let totalItems = 0;
+let searchDebounceTimeout = null;
+
 // Diccionario de Nombres Oficiales de Áreas
 const NOMBRES_AREAS = {
   seguridad: 'Gestión Interna de Seguridad Informática y Calidad de Software - (GISICS)',
@@ -947,13 +954,25 @@ function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
 }
 
 // 4. BANDEJAS: CARGAR Y RENDERIZAR TABLA DE SOLICITUDES
+// 4. BANDEJAS: CARGAR Y RENDERIZAR TABLA DE SOLICITUDES
 async function cargarBandeja() {
   try {
-    const response = await fetch('/api/solicitudes', {
+    const searchInput = document.getElementById('buscador-solicitudes');
+    const searchVal = searchInput ? searchInput.value.trim() : '';
+
+    const url = `/api/solicitudes?page=${paginaActual}&limit=${limitePagina}&estado=${filtroEstadoActual}&search=${encodeURIComponent(searchVal)}`;
+
+    const response = await fetch(url, {
       headers: { 'x-user-id': currentUser.id }
     });
-    todasLasSolicitudes = await response.json();
+    const data = await response.json();
+
+    todasLasSolicitudes = data.solicitudes;
+    totalItems = data.total;
+    totalPaginas = data.pages;
+
     renderizarSolicitudes();
+    renderizarPaginacion();
   } catch (error) {
     console.error('Error al cargar bandeja:', error);
   }
@@ -961,44 +980,8 @@ async function cargarBandeja() {
 
 function renderizarSolicitudes() {
   solicitudesList.innerHTML = '';
-  
-  const textoBuscador = document.getElementById('buscador-solicitudes') 
-    ? document.getElementById('buscador-solicitudes').value.toLowerCase().trim() 
-    : '';
 
-  // Filtrar según la pestaña activa y el término del buscador
-  const solicitudesFiltradas = todasLasSolicitudes.filter(sol => {
-    // 1. Filtrar por estado de pestaña activa
-    if (filtroEstadoActual !== 'todos' && sol.estado !== filtroEstadoActual) {
-      return false;
-    }
-
-    // 2. Filtrar por texto ingresado en el buscador
-    if (textoBuscador) {
-      // Generar el código compuesto de la misma manera que se renderiza
-      const fechaCreacion = new Date(sol.fecha_creacion);
-      const mes = String(fechaCreacion.getMonth() + 1).padStart(2, '0');
-      const anio = fechaCreacion.getFullYear();
-      const codigoClean = (sol.tipo_codigo || 'FORM').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
-      const cedulaClean = (sol.solicitante_cedula || '').trim().replace(/[^a-zA-Z0-9_-]/g, '');
-      const codigoSeguimiento = `${codigoClean}_${cedulaClean}_${mes}_${anio}`.toLowerCase();
-
-      const solicitante = (sol.solicitante_nombre || '').toLowerCase();
-      const cedula = (sol.solicitante_cedula || '').toLowerCase();
-      const tipoNombre = (sol.tipo_nombre || '').toLowerCase();
-
-      // Devolver verdadero si coincide con alguno de los campos clave
-      return codigoSeguimiento.includes(textoBuscador) || 
-             sol.tipo_codigo.toLowerCase().includes(textoBuscador) ||
-             solicitante.includes(textoBuscador) || 
-             cedula.includes(textoBuscador) || 
-             tipoNombre.includes(textoBuscador);
-    }
-
-    return true;
-  });
-
-  if (solicitudesFiltradas.length === 0) {
+  if (todasLasSolicitudes.length === 0) {
     solicitudesList.innerHTML = `
       <tr>
         <td colspan="7" class="text-center">No se encontraron solicitudes en esta bandeja.</td>
@@ -1007,7 +990,7 @@ function renderizarSolicitudes() {
     return;
   }
 
-  solicitudesFiltradas.forEach(sol => {
+  todasLasSolicitudes.forEach(sol => {
     const tr = document.createElement('tr');
     
     // Formato de fecha de actualización
@@ -1095,6 +1078,58 @@ function renderizarSolicitudes() {
   });
 }
 
+function renderizarPaginacion() {
+  const paginacionInfo = document.getElementById('paginacion-info');
+  const paginacionControles = document.getElementById('paginacion-controles');
+
+  if (!paginacionInfo || !paginacionControles) return;
+
+  if (totalItems === 0) {
+    paginacionInfo.textContent = 'Mostrando solicitudes 0-0 de 0';
+    paginacionControles.innerHTML = '';
+    return;
+  }
+
+  const inicio = (paginaActual - 1) * limitePagina + 1;
+  const fin = Math.min(paginaActual * limitePagina, totalItems);
+  paginacionInfo.textContent = `Mostrando solicitudes ${inicio}-${fin} de ${totalItems}`;
+
+  let html = '';
+  // Botón Anterior
+  html += `<button type="button" class="btn btn-outline btn-sm" ${paginaActual === 1 ? 'disabled' : ''} onclick="cambiarPagina(${paginaActual - 1})">◀ Anterior</button>`;
+
+  // Páginas numeradas
+  const maxVisibles = 5;
+  let pagInicio = Math.max(1, paginaActual - 2);
+  let pagFin = Math.min(totalPaginas, pagInicio + maxVisibles - 1);
+  if (pagFin - pagInicio < maxVisibles - 1) {
+    pagInicio = Math.max(1, pagFin - maxVisibles + 1);
+  }
+
+  for (let i = pagInicio; i <= pagFin; i++) {
+    html += `<button type="button" class="btn ${i === paginaActual ? 'btn-primary' : 'btn-outline'} btn-sm" onclick="cambiarPagina(${i})">${i}</button>`;
+  }
+
+  // Botón Siguiente
+  html += `<button type="button" class="btn btn-outline btn-sm" ${paginaActual === totalPaginas ? 'disabled' : ''} onclick="cambiarPagina(${paginaActual + 1})">Siguiente ▶</button>`;
+
+  paginacionControles.innerHTML = html;
+}
+
+function cambiarPagina(nuevaPagina) {
+  if (nuevaPagina < 1 || nuevaPagina > totalPaginas) return;
+  paginaActual = nuevaPagina;
+  cargarBandeja();
+}
+
+function debouncedBuscar() {
+  clearTimeout(searchDebounceTimeout);
+  searchDebounceTimeout = setTimeout(() => {
+    paginaActual = 1;
+    cargarBandeja();
+  }, 300);
+}
+
 function filtrarBandeja(estado, elem) {
   filtroEstadoActual = estado;
   
@@ -1127,7 +1162,8 @@ function filtrarBandeja(estado, elem) {
   document.getElementById('bandeja-titulo').textContent = titulos[estado];
   document.getElementById('bandeja-descripcion').textContent = descripciones[estado];
 
-  renderizarSolicitudes();
+  paginaActual = 1;
+  cargarBandeja();
 }
 
 // 5. MODAL CREACIÓN: ABRIR Y CERRAR
@@ -3242,6 +3278,8 @@ window.realizarObservacionSimple = realizarObservacionSimple;
 window.realizarReapertura = realizarReapertura;
 window.abrirEdicion = abrirEdicion;
 window.descargarPDF = descargarPDF;
+window.cambiarPagina = cambiarPagina;
+window.debouncedBuscar = debouncedBuscar;
 
 // AUTO-ACTUALIZACIÓN PERIÓDICA (POLLING)
 function iniciarAutoRefresh() {

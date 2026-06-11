@@ -103,7 +103,7 @@
 
           <!-- Buscador de Solicitudes -->
           <div style="margin-bottom: 1.2rem; max-width: 400px;">
-            <input type="text" id="buscador-solicitudes" placeholder="🔍 Buscar por código, solicitante, tipo o C.I...." oninput="renderizarSolicitudes()">
+            <input type="text" id="buscador-solicitudes" placeholder="🔍 Buscar por código, solicitante, tipo o C.I...." oninput="debouncedBuscar()">
           </div>
 
           <!-- Tabla de Solicitudes -->
@@ -127,6 +127,16 @@
                 </tr>
               </tbody>
             </table>
+          </div>
+          
+          <!-- Controles de Paginación -->
+          <div id="paginacion-container" style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.2rem; flex-wrap: wrap; gap: 0.5rem; background-color: var(--bg-input-secondary); padding: 0.75rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+            <div id="paginacion-info" style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 500;">
+              Mostrando solicitudes 0-0 de 0
+            </div>
+            <div id="paginacion-controles" style="display: flex; gap: 0.4rem; align-items: center;">
+              <!-- Botones cargados dinámicamente -->
+            </div>
           </div>
         </div>
 

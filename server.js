@@ -406,8 +406,78 @@ app.post('/api/solicitudes', autenticar, async (req, res) => {
 // 4. OBTENER LISTA DE SOLICITUDES (BANDEJA)
 app.get('/api/solicitudes', autenticar, async (req, res) => {
   const { id, rol, area } = req.usuario;
+  const { page, limit, estado, search } = req.query;
+
   try {
-    let query = `
+    const params = [];
+    const whereClauses = [];
+
+    // Función auxiliar para registrar parámetros dinámicamente y devolver su marcador $N
+    const addParam = (val) => {
+      params.push(val);
+      return `$${params.length}`;
+    };
+
+    let fromClause = `
+      FROM solicitudes s
+      JOIN usuarios u ON s.solicitante_id = u.id
+      JOIN tipos_solicitud ts ON s.tipo_solicitud_id = ts.id
+    `;
+
+    // 1. FILTRADO POR ROL (CONTROL DE ACCESO)
+    if (rol === 'solicitante') {
+      whereClauses.push(`s.solicitante_id = ${addParam(id)}`);
+    } else if (rol === 'tecnico') {
+      // El técnico nunca debe ver borradores
+      whereClauses.push(`s.estado != 'borrador'`);
+      
+      const areaParam = addParam(area);
+      whereClauses.push(`ts.areas_validadoras @> jsonb_build_array(${areaParam}::text)`);
+
+      if (['seguridad', 'gibdd', 'giitrc', 'osi'].includes(area)) {
+        // Áreas con flujo de asignación exclusiva
+        const tecnicoParam = addParam(id);
+        fromClause += ` LEFT JOIN aprobaciones ap ON ap.solicitud_id = s.id AND ap.area = ${areaParam}`;
+        whereClauses.push(`(ap.tecnico_id IS NULL OR ap.tecnico_id = ${tecnicoParam})`);
+      }
+    }
+    // Si es administrador, ve todo. No se agregan cláusulas restrictivas de rol.
+
+    // 2. FILTRADO POR ESTADO (si se especifica y es diferente de 'todos' o vacío)
+    if (estado && estado !== 'todos' && estado.trim() !== '') {
+      whereClauses.push(`s.estado = ${addParam(estado.trim())}`);
+    }
+
+    // 3. FILTRADO POR BÚSQUEDA DE TEXTO (search)
+    if (search && search.trim() !== '') {
+      const searchPattern = `%${search.trim()}%`;
+      const searchParam = addParam(searchPattern);
+      whereClauses.push(
+        `(u.nombre ILIKE ${searchParam} OR u.cedula ILIKE ${searchParam} OR ts.nombre ILIKE ${searchParam} OR ts.codigo ILIKE ${searchParam})`
+      );
+    }
+
+    const whereString = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+    // 4. CONSULTA DE CONTEO TOTAL
+    const countQuery = `
+      SELECT COUNT(DISTINCT s.id) AS total
+      ${fromClause}
+      ${whereString}
+    `;
+    const countResult = await db.query(countQuery, params);
+    const totalItems = parseInt(countResult.rows[0].total, 10) || 0;
+
+    // 5. PARÁMETROS DE PAGINACIÓN
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.max(1, parseInt(limit, 10) || 10);
+    const offset = (pageNum - 1) * limitNum;
+
+    const limitParam = addParam(limitNum);
+    const offsetParam = addParam(offset);
+
+    // 6. CONSULTA DE DATOS PAGINADOS
+    const dataQuery = `
       SELECT s.id, s.tipo_solicitud_id, s.datos, s.estado, s.fecha_creacion, s.fecha_actualizacion,
              u.nombre AS solicitante_nombre, u.cedula AS solicitante_cedula, ts.nombre AS tipo_nombre, ts.codigo AS tipo_codigo, ts.areas_validadoras,
              COALESCE((
@@ -422,43 +492,21 @@ app.get('/api/solicitudes', autenticar, async (req, res) => {
                ORDER BY o.fecha DESC
                LIMIT 1
              ) AS ultima_observacion_area
-      FROM solicitudes s
-      JOIN usuarios u ON s.solicitante_id = u.id
-      JOIN tipos_solicitud ts ON s.tipo_solicitud_id = ts.id
+      ${fromClause}
+      ${whereString}
+      ORDER BY s.fecha_actualizacion DESC
+      LIMIT ${limitParam} OFFSET ${offsetParam}
     `;
-    const params = [];
 
-    // Lógica de bandeja por roles
-    if (rol === 'solicitante') {
-      // El solicitante solo ve sus propias solicitudes
-      query += ' WHERE s.solicitante_id = $1';
-      params.push(id);
-    } else if (rol === 'tecnico') {
-      // El técnico ve las solicitudes que requieren validación de su área Y que no estén en borrador.
-      if (['seguridad', 'gibdd', 'giitrc', 'osi'].includes(area)) {
-        // Para áreas con flujo de asignación exclusiva (seguridad, gibdd, giitrc, osi) y ya hay un técnico asignado, sólo se le muestra a ese técnico.
-        query += `
-          LEFT JOIN aprobaciones ap ON ap.solicitud_id = s.id AND ap.area = $1
-          WHERE s.estado != 'borrador' 
-            AND ts.areas_validadoras @> jsonb_build_array($1::text)
-            AND (ap.tecnico_id IS NULL OR ap.tecnico_id = $2)
-        `;
-        params.push(area);
-        params.push(id);
-      } else {
-        // Para áreas sin flujo de asignación exclusiva (ej: director), ver todas las solicitudes de su área
-        query += `
-          WHERE s.estado != 'borrador' 
-            AND ts.areas_validadoras @> jsonb_build_array($1::text)
-        `;
-        params.push(area);
-      }
-    }
-    // Si es administrador, ve todo. No agregamos filtros.
+    const dataResult = await db.query(dataQuery, params);
 
-    query += ' ORDER BY s.fecha_actualizacion DESC';
-    const result = await db.query(query, params);
-    res.json(result.rows);
+    res.json({
+      solicitudes: dataResult.rows,
+      total: totalItems,
+      page: pageNum,
+      limit: limitNum,
+      pages: Math.ceil(totalItems / limitNum)
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al obtener las solicitudes de la bandeja.' });
