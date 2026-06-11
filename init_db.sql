@@ -119,3 +119,11 @@ INSERT INTO tipos_solicitud (codigo, nombre, descripcion, campos, areas_validado
   ]'::jsonb,
   '["giitrc", "seguridad"]'::jsonb
 );
+
+-- 6. Índices para optimización de consultas (bandejas de entrada y revisiones)
+CREATE INDEX IF NOT EXISTS idx_solicitudes_solicitante_id ON solicitudes(solicitante_id);
+CREATE INDEX IF NOT EXISTS idx_solicitudes_estado ON solicitudes(estado);
+CREATE INDEX IF NOT EXISTS idx_aprobaciones_solicitud_id ON aprobaciones(solicitud_id);
+CREATE INDEX IF NOT EXISTS idx_aprobaciones_area ON aprobaciones(area);
+CREATE INDEX IF NOT EXISTS idx_aprobaciones_tecnico_id ON aprobaciones(tecnico_id);
+CREATE INDEX IF NOT EXISTS idx_observaciones_solicitud_id ON observaciones(solicitud_id);

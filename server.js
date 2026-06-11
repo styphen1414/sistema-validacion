@@ -77,7 +77,7 @@ async function enviarCorreoNuevaSolicitud(solicitudId) {
 
     // 2. Personalizar el Asunto y el Cuerpo del Correo
     const fechaStr = new Date(row.fecha_creacion).toLocaleDateString('es-ES');
-    const url = `http://127.0.0.1:3000/`; // URL base local del sistema
+    const url = process.env.APP_URL || 'http://127.0.0.1:3000/'; // URL base local del sistema
 
     const asuntoPersonalizado = row.mail_asunto
       .replace(/{codigo}/g, `${row.tipo_codigo}-${row.id}`)
@@ -163,7 +163,7 @@ async function enviarCorreoProgresoSolicitud(solicitudId, tipoEvento, area, deta
 
     const areaNombre = NOMBRES_AREAS[area] || area;
     const fechaStr = new Date(row.fecha_actualizacion).toLocaleDateString('es-ES') + ' ' + new Date(row.fecha_actualizacion).toLocaleTimeString('es-ES');
-    const url = `http://127.0.0.1:3000/`; // URL base local del sistema
+    const url = process.env.APP_URL || 'http://127.0.0.1:3000/'; // URL base local del sistema
 
     let asunto = '';
     let tituloHTML = '';
@@ -287,14 +287,14 @@ async function autenticar(req, res, next) {
   }
 }
 
-async function inicializarAprobaciones(solicitudId, areas) {
+async function inicializarAprobaciones(solicitudId, areas, client = db) {
   try {
-    const dirUserRes = await db.query("SELECT id FROM usuarios WHERE area = 'director' AND rol = 'tecnico' LIMIT 1");
+    const dirUserRes = await client.query("SELECT id FROM usuarios WHERE area = 'director' AND rol = 'tecnico' LIMIT 1");
     const dirUserId = dirUserRes.rows.length > 0 ? dirUserRes.rows[0].id : null;
 
     for (const area of areas) {
       if (area === 'director') {
-        await db.query(
+        await client.query(
           `INSERT INTO aprobaciones (solicitud_id, area, estado, tecnico_id, fecha)
            VALUES ($1, $2, 'aprobado', $3, CURRENT_TIMESTAMP)
            ON CONFLICT (solicitud_id, area)
@@ -302,7 +302,7 @@ async function inicializarAprobaciones(solicitudId, areas) {
           [solicitudId, area, dirUserId]
         );
       } else {
-        await db.query(
+        await client.query(
           `INSERT INTO aprobaciones (solicitud_id, area, estado, tecnico_id, fecha)
            VALUES ($1, $2, 'pendiente', NULL, NULL)
            ON CONFLICT (solicitud_id, area)
@@ -359,26 +359,35 @@ app.post('/api/solicitudes', autenticar, async (req, res) => {
   }
 
   const estado = enviar ? 'en_revision' : 'borrador';
+  const client = await db.pool.connect();
 
   try {
+    await client.query('BEGIN');
+
     // Obtener información del tipo de solicitud para conocer las áreas que validarán
-    const tipoRes = await db.query('SELECT areas_validadoras FROM tipos_solicitud WHERE id = $1', [tipo_solicitud_id]);
+    const tipoRes = await client.query('SELECT areas_validadoras FROM tipos_solicitud WHERE id = $1', [tipo_solicitud_id]);
     if (tipoRes.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(400).json({ error: 'El tipo de solicitud no existe.' });
     }
     const areas = tipoRes.rows[0].areas_validadoras;
 
     // Crear la solicitud
-    const insertRes = await db.query(
+    const insertRes = await client.query(
       'INSERT INTO solicitudes (solicitante_id, tipo_solicitud_id, datos, estado) VALUES ($1, $2, $3, $4) RETURNING *',
       [solicitanteId, tipo_solicitud_id, datos, estado]
     );
     const solicitud = insertRes.rows[0];
 
-    // Si se envía para revisión, inicializar las aprobaciones de cada área (osi como 'aprobado', las demás 'pendiente')
+    // Si se envía para revisión, inicializar las aprobaciones de cada área
     if (estado === 'en_revision') {
-      await inicializarAprobaciones(solicitud.id, areas);
-      // Enviar correo automático asíncronamente
+      await inicializarAprobaciones(solicitud.id, areas, client);
+    }
+
+    await client.query('COMMIT');
+
+    // Enviar correo automático asíncronamente (fuera de la transacción)
+    if (estado === 'en_revision') {
       enviarCorreoNuevaSolicitud(solicitud.id).catch(err => {
         console.error('Error al enviar correo automático al crear solicitud:', err);
       });
@@ -386,8 +395,11 @@ app.post('/api/solicitudes', autenticar, async (req, res) => {
 
     res.json(solicitud);
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error(error);
     res.status(500).json({ error: 'Error al crear la solicitud.' });
+  } finally {
+    client.release();
   }
 });
 
@@ -513,9 +525,13 @@ app.put('/api/solicitudes/:id', autenticar, async (req, res) => {
     return res.status(400).json({ error: 'Datos incompletos.' });
   }
 
+  const client = await db.pool.connect();
+
   try {
+    await client.query('BEGIN');
+
     // Validar propiedad de la solicitud y permisos
-    const solRes = await db.query(
+    const solRes = await client.query(
       `SELECT s.estado, s.solicitante_id, ts.areas_validadoras 
        FROM solicitudes s
        JOIN tipos_solicitud ts ON s.tipo_solicitud_id = ts.id
@@ -523,6 +539,7 @@ app.put('/api/solicitudes/:id', autenticar, async (req, res) => {
       [id]
     );
     if (solRes.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Solicitud no encontrada.' });
     }
 
@@ -541,7 +558,7 @@ app.put('/api/solicitudes/:id', autenticar, async (req, res) => {
       if (solicitud.estado === 'en_revision' || solicitud.estado === 'observado') {
         if (['seguridad', 'gibdd', 'giitrc', 'osi'].includes(area)) {
           // Si es un área con flujo de asignación exclusiva, debe tener la responsabilidad tomada (tecnico_id = userId).
-          const asignadoRes = await db.query(
+          const asignadoRes = await client.query(
             "SELECT tecnico_id FROM aprobaciones WHERE solicitud_id = $1 AND area = $2",
             [id, area]
           );
@@ -556,6 +573,7 @@ app.put('/api/solicitudes/:id', autenticar, async (req, res) => {
     }
 
     if (!autorizado) {
+      await client.query('ROLLBACK');
       return res.status(403).json({ error: 'No tienes permiso para modificar esta solicitud.' });
     }
 
@@ -563,29 +581,39 @@ app.put('/api/solicitudes/:id', autenticar, async (req, res) => {
     const nuevoEstado = (rol === 'solicitante' && enviar) ? 'en_revision' : solicitud.estado;
 
     // Actualizar solicitud
-    await db.query(
+    await client.query(
       'UPDATE solicitudes SET datos = $1, estado = $2, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = $3',
       [datos, nuevoEstado, id]
     );
 
+    let dispararCorreo = false;
     // LÓGICA DE REAPERTURA: Inicializamos aprobaciones únicamente si es el primer envío (desde borrador) o si no existen.
     // Si ya existían aprobaciones (caso de reenvío tras ser observado), las mantenemos intactas para no perder el avance de otras áreas.
     if (rol === 'solicitante' && nuevoEstado === 'en_revision') {
-      const apCheck = await db.query('SELECT COUNT(*) FROM aprobaciones WHERE solicitud_id = $1', [id]);
+      const apCheck = await client.query('SELECT COUNT(*) FROM aprobaciones WHERE solicitud_id = $1', [id]);
       const tieneAprobaciones = parseInt(apCheck.rows[0].count, 10) > 0;
       if (!tieneAprobaciones || solicitud.estado === 'borrador') {
-        await inicializarAprobaciones(id, solicitud.areas_validadoras);
-        // Enviar correo automático asíncronamente en la primera transición a revisión
-        enviarCorreoNuevaSolicitud(id).catch(err => {
-          console.error('Error al enviar correo automático al enviar solicitud (PUT):', err);
-        });
+        await inicializarAprobaciones(id, solicitud.areas_validadoras, client);
+        dispararCorreo = true;
       }
+    }
+
+    await client.query('COMMIT');
+
+    // Enviar correo automático asíncronamente en la primera transición a revisión
+    if (dispararCorreo) {
+      enviarCorreoNuevaSolicitud(id).catch(err => {
+        console.error('Error al enviar correo automático al enviar solicitud (PUT):', err);
+      });
     }
 
     res.json({ message: 'Solicitud actualizada con éxito.', estado: nuevoEstado });
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error(error);
     res.status(500).json({ error: 'Error al actualizar la solicitud.' });
+  } finally {
+    client.release();
   }
 });
 
@@ -599,19 +627,25 @@ app.post('/api/solicitudes/:id/aprobar', autenticar, async (req, res) => {
     return res.status(403).json({ error: 'Solo los analistas de áreas técnicas pueden aprobar (excepto Director DTIC).' });
   }
 
+  const client = await db.pool.connect();
+
   try {
+    await client.query('BEGIN');
+
     // Verificar si la solicitud existe y está en revisión u observado
-    const solRes = await db.query('SELECT estado FROM solicitudes WHERE id = $1', [id]);
+    const solRes = await client.query('SELECT estado FROM solicitudes WHERE id = $1', [id]);
     if (solRes.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Solicitud no encontrada.' });
     }
     const estadoActual = solRes.rows[0].estado;
     if (estadoActual !== 'en_revision' && estadoActual !== 'observado') {
+      await client.query('ROLLBACK');
       return res.status(400).json({ error: 'La solicitud debe estar en revisión o con observaciones para aprobar.' });
     }
 
     // Actualizar la aprobación específica del área del técnico
-    const apRes = await db.query(
+    const apRes = await client.query(
       `UPDATE aprobaciones 
        SET estado = 'aprobado', tecnico_id = $1, fecha = CURRENT_TIMESTAMP, observacion = $2 
        WHERE solicitud_id = $3 AND area = $4
@@ -620,12 +654,13 @@ app.post('/api/solicitudes/:id/aprobar', autenticar, async (req, res) => {
     );
 
     if (apRes.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Esta solicitud no requiere la validación de tu área.' });
     }
 
     // Registrar en el historial de observaciones si se ingresó un texto
     if (observacion && observacion.trim() !== '') {
-      await db.query(
+      await client.query(
         `INSERT INTO observaciones (solicitud_id, area, autor_id, texto) 
          VALUES ($1, $2, $3, $4)`,
         [id, area, tecnicoId, `[Aprobado con Observación] ${observacion}`]
@@ -633,25 +668,32 @@ app.post('/api/solicitudes/:id/aprobar', autenticar, async (req, res) => {
     }
 
     // VERIFICACIÓN: ¿Ya aprobaron todas las áreas requeridas?
-    const todasAprobadasRes = await db.query(
+    const todasAprobadasRes = await client.query(
       "SELECT COUNT(*) FROM aprobaciones WHERE solicitud_id = $1 AND estado = 'pendiente'",
       [id]
     );
     const pendientes = parseInt(todasAprobadasRes.rows[0].count, 10);
 
     let nuevoEstadoGeneral = estadoActual;
+    let esAprobacionTotal = false;
+
     if (pendientes === 0) {
       nuevoEstadoGeneral = 'aprobado';
-      await db.query(
+      esAprobacionTotal = true;
+      await client.query(
         "UPDATE solicitudes SET estado = 'aprobado', fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = $1",
         [id]
       );
-      // Disparar correo de aprobación total asíncronamente
+    }
+
+    await client.query('COMMIT');
+
+    // Disparar correos automáticos asíncronamente (fuera de la transacción)
+    if (esAprobacionTotal) {
       enviarCorreoProgresoSolicitud(id, 'aprobado_total', area, observacion).catch(err => {
         console.error('Error al enviar correo de aprobación total:', err);
       });
     } else {
-      // Disparar correo de aprobación de sección asíncronamente
       enviarCorreoProgresoSolicitud(id, 'aprobado_seccion', area, observacion).catch(err => {
         console.error('Error al enviar correo de aprobación de sección:', err);
       });
@@ -659,8 +701,11 @@ app.post('/api/solicitudes/:id/aprobar', autenticar, async (req, res) => {
 
     res.json({ message: 'Sección aprobada con éxito.', estadoGeneral: nuevoEstadoGeneral });
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error(error);
     res.status(500).json({ error: 'Error al procesar la aprobación.' });
+  } finally {
+    client.release();
   }
 });
 
@@ -713,39 +758,49 @@ app.post('/api/solicitudes/:id/observar', autenticar, async (req, res) => {
     return res.status(400).json({ error: 'El detalle de la observación no puede estar vacío.' });
   }
 
+  const client = await db.pool.connect();
+
   try {
+    await client.query('BEGIN');
+
     // Verificar si la solicitud existe y está en revisión o ya observado
-    const solRes = await db.query('SELECT estado FROM solicitudes WHERE id = $1', [id]);
+    const solRes = await client.query('SELECT estado FROM solicitudes WHERE id = $1', [id]);
     if (solRes.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Solicitud no encontrada.' });
     }
     const estadoActual = solRes.rows[0].estado;
     if (estadoActual !== 'en_revision' && estadoActual !== 'observado') {
+      await client.query('ROLLBACK');
       return res.status(400).json({ error: 'La solicitud debe estar en revisión o con observaciones.' });
     }
 
     // 1. Guardar la observación en el historial
-    await db.query(
+    await client.query(
       'INSERT INTO observaciones (solicitud_id, area, autor_id, texto) VALUES ($1, $2, $3, $4)',
       [id, area, tecnicoId, texto]
     );
 
     // 2. REAPERTURA INTEGRAL AL ESTADO OBSERVADO:
-    await db.query(
+    await client.query(
       "UPDATE solicitudes SET estado = 'observado', fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = $1",
       [id]
     );
-    // La solicitud cambia a estado observado pero conservando las aprobaciones otorgadas por otras áreas.
 
-    // Disparar correo de observaciones/observado asíncronamente
+    await client.query('COMMIT');
+
+    // Disparar correo de observaciones/observado asíncronamente (fuera de la transacción)
     enviarCorreoProgresoSolicitud(id, 'observado', area, texto).catch(err => {
       console.error('Error al enviar correo de progreso observado:', err);
     });
 
     res.json({ message: 'Observación registrada y flujo marcado como observado.' });
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error(error);
     res.status(500).json({ error: 'Error al registrar la observación.' });
+  } finally {
+    client.release();
   }
 });
 
@@ -849,9 +904,13 @@ app.post('/api/solicitudes/:id/reabrir', autenticar, async (req, res) => {
     return res.status(400).json({ error: 'El motivo de la reapertura es requerido.' });
   }
 
+  const client = await db.pool.connect();
+
   try {
+    await client.query('BEGIN');
+
     // Obtener solicitud e información del tipo de solicitud
-    const solRes = await db.query(
+    const solRes = await client.query(
       `SELECT s.estado, s.solicitante_id, ts.areas_validadoras 
        FROM solicitudes s
        JOIN tipos_solicitud ts ON s.tipo_solicitud_id = ts.id
@@ -860,12 +919,14 @@ app.post('/api/solicitudes/:id/reabrir', autenticar, async (req, res) => {
     );
 
     if (solRes.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Solicitud no encontrada.' });
     }
 
     const solicitud = solRes.rows[0];
 
     if (solicitud.estado === 'borrador') {
+      await client.query('ROLLBACK');
       return res.status(400).json({ error: 'No se puede reabrir una solicitud en borrador.' });
     }
 
@@ -878,7 +939,7 @@ app.post('/api/solicitudes/:id/reabrir', autenticar, async (req, res) => {
     } else if (rol === 'tecnico' && area && area !== 'director' && solicitud.areas_validadoras.includes(area)) {
       if (['seguridad', 'gibdd', 'giitrc', 'osi'].includes(area)) {
         // El técnico del área validadora puede reabrir siempre y cuando se haya asignado la responsabilidad
-        const asignadoRes = await db.query(
+        const asignadoRes = await client.query(
           "SELECT tecnico_id FROM aprobaciones WHERE solicitud_id = $1 AND area = $2",
           [id, area]
         );
@@ -892,34 +953,40 @@ app.post('/api/solicitudes/:id/reabrir', autenticar, async (req, res) => {
     }
 
     if (!autorizado) {
+      await client.query('ROLLBACK');
       return res.status(403).json({ error: 'No tienes permiso para reabrir esta solicitud.' });
     }
 
     // 1. Cambiar estado a 'en_revision'
-    await db.query(
+    await client.query(
       "UPDATE solicitudes SET estado = 'en_revision', fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = $1",
       [id]
     );
 
     // 2. Resetear todas las aprobaciones (osi como 'aprobado', las demás 'pendiente')
-    await inicializarAprobaciones(id, solicitud.areas_validadoras);
+    await inicializarAprobaciones(id, solicitud.areas_validadoras, client);
 
     // 3. Registrar observación explicando la reapertura
     const autorArea = rol === 'tecnico' ? area : (rol === 'admin' ? 'admin' : 'solicitante');
-    await db.query(
+    await client.query(
       'INSERT INTO observaciones (solicitud_id, area, autor_id, texto) VALUES ($1, $2, $3, $4)',
       [id, autorArea, userId, `REAPERTURA DEL PROCESO: ${texto}`]
     );
 
-    // Disparar correo de reapertura asíncronamente
+    await client.query('COMMIT');
+
+    // Disparar correo de reapertura asíncronamente (fuera de la transacción)
     enviarCorreoProgresoSolicitud(id, 'reapertura', autorArea, texto).catch(err => {
       console.error('Error al enviar correo de progreso de reapertura:', err);
     });
 
     res.json({ message: 'El proceso de revisión se ha reabierto para todas las áreas.' });
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error(error);
     res.status(500).json({ error: 'Error al reabrir el proceso de revisión.' });
+  } finally {
+    client.release();
   }
 });
 
@@ -978,18 +1045,25 @@ app.get('/api/solicitudes/:id/pdf', autenticar, async (req, res) => {
     const cedulaClean = (solicitud.solicitante_cedula || 'NOCEDULA').trim().replace(/[^a-zA-Z0-9_-]/g, '');
     const filename = `${codigoClean}_${cedulaClean}_${mes}_${anio}.pdf`;
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-
-    // Crear documento PDF con PDFKit
+    // Crear documento PDF con PDFKit en memoria
     const doc = new PDFDocument({ margin: 50 });
-    doc.pipe(res);
+    const chunks = [];
+
+    doc.on('data', chunk => chunks.push(chunk));
+    doc.on('end', () => {
+      const pdfBuffer = Buffer.concat(chunks);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(pdfBuffer);
+    });
 
     generarReportePDFInternal(doc, solicitud, apRes.rows, directorSigner);
     doc.end();
   } catch (error) {
-    console.error(error);
-    res.status(500).send('Error al generar el documento PDF.');
+    console.error('Error al generar el documento PDF:', error);
+    if (!res.headersSent) {
+      res.status(500).send('Error al generar el documento PDF.');
+    }
   }
 });
 
