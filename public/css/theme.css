@@ -1,0 +1,30 @@
+:root {
+  /* Paleta de Colores Azul Marino, Celeste y Blanco */
+  --bg-primary: #F1F5F9;       /* Gris azulado muy claro */
+  --bg-card: #FFFFFF;          /* Blanco puro */
+  --bg-input: #FFFFFF;         /* Blanco puro */
+  --bg-input-secondary: #F8FAFC; /* Slate 50 para inputs secundarios / celdas */
+  --text-primary: #0F172A;     /* Azul marino muy oscuro (casi negro) */
+  --text-secondary: #475569;   /* Gris azulado para subtítulos y texto secundario */
+  --border-color: #E2E8F0;     /* Gris claro para bordes */
+  
+  /* Tonos de Acentuación */
+  --accent-color: #1E3A8A;     /* Azul Marino principal para botones y acentos */
+  --accent-hover: #172554;     /* Azul Marino oscuro */
+  --celeste-color: #0EA5E9;    /* Celeste de acentuación */
+  --celeste-hover: #0284C7;    
+  --celeste-light: #F0F9FF;    /* Celeste claro de fondo */
+  --success-color: #10B981;    /* Verde esmeralda */
+  --success-hover: #059669;
+  --danger-color: #EF4444;     /* Rojo */
+  --danger-hover: #DC2626;
+  --warning-color: #F59E0B;    /* Ámbar */
+  
+  /* Fuentes y Bordes */
+  --font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --radius-lg: 12px;
+  --radius-md: 8px;
+  --radius-sm: 4px;
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 20px rgba(15, 23, 42, 0.08);
+}

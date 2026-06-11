@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Validación Técnica - SVT</title>
+  <link rel="stylesheet" href="css/theme.css">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/dynamic-forms.css">
+  <!-- Fuente elegante y suave para la vista -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+</head>
+
+<body>
+
+  <!-- PANTALLA DE INICIO DE SESIÓN -->
+  <div id="login-container" class="card">
+    <div class="login-header">
+      <div class="logo">MSP</div>
+      <h2>Dirección de Tecnologías de la Información y Comunicaciones</h2>
+      <p>Gestión Interna de Seguridad Informática y Calidad de Software (GISICS)</p>
+    </div>
+
+    <form id="login-form">
+      <div class="form-group">
+        <label for="username">Usuario</label>
+        <input type="text" id="username" placeholder="Ingresa tu usuario" required>
+      </div>
+      <div class="form-group">
+        <label for="password">Contraseña</label>
+        <input type="password" id="password" placeholder="Ingresa tu contraseña" required>
+      </div>
+      <div id="login-error" class="alert alert-danger hidden"></div>
+      <button type="submit" class="btn btn-primary btn-block">Ingresar al Sistema</button>
+    </form>
+    <div class="login-support">
+      <p>Para la creación de usuarios, por favor comuníquese con la Mesa de Servicios Informáticos del MSP (<a
+          href="mailto:soporte.tics@msp.gob.ec">soporte.tics@msp.gob.ec</a>, teléfono 023814400 ext. 4000)</p>
+    </div>
+  </div>
+
+  <!-- APLICACIÓN PRINCIPAL (PANEL DE CONTROL) -->
+  <div id="app-container" class="hidden">
+    <!-- Encabezado Principal -->
+    <header class="main-header">
+      <div class="header-logo">
+        <span class="logo-text">MSP</span>
+        <span class="logo-subtext">- Dirección de Tecnologías de la Información y Comunicaciones</span>
+      </div>
+      <div class="user-info">
+        <span id="user-display-name">Cargando...</span>
+        <span id="user-display-role" class="badge">Rol</span>
+        <button id="logout-btn" class="btn btn-outline btn-sm">Cerrar Sesión</button>
+      </div>
+    </header>
+
+    <div class="app-layout">
+      <!-- Barra Lateral / Filtros de Bandeja -->
+      <aside class="sidebar">
+        <div id="btn-nueva-solicitud-container">
+          <button id="btn-nueva-solicitud" class="btn btn-primary btn-block">+ Nueva Solicitud</button>
+        </div>
+
+        <nav class="sidebar-nav">
+          <div id="bandejas-menu">
+            <h3>Bandeja de Entrada</h3>
+            <ul>
+              <li><a href="#" class="active" id="tab-bandeja-todos" onclick="filtrarBandeja('todos', this)">📂 Todas las
+                  Solicitudes</a></li>
+              <li id="tab-borrador"><a href="#" onclick="filtrarBandeja('borrador', this)">✏️ Borradores</a></li>
+              <li><a href="#" onclick="filtrarBandeja('en_revision', this)">🔄 En Revisión</a></li>
+              <li><a href="#" onclick="filtrarBandeja('observado', this)">⚠️ Observadas</a></li>
+              <li><a href="#" onclick="filtrarBandeja('aprobado', this)">✅ Aprobadas</a></li>
+            </ul>
+          </div>
+
+          <div id="admin-sidebar-menu" class="hidden">
+            <h3 style="margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">Administración
+            </h3>
+            <ul>
+              <li><a href="#" id="tab-admin-usuarios" onclick="navegarAdmin('usuarios', this)">👥 Gestión de
+                  Usuarios</a></li>
+              <li><a href="#" id="tab-admin-formularios" onclick="navegarAdmin('formularios', this)">📋 Plantillas
+                  Formularios</a></li>
+              <li><a href="#" id="tab-admin-correos" onclick="navegarAdmin('correos', this)">✉️ Prueba de Correos</a></li>
+            </ul>
+          </div>
+        </nav>
+      </aside>
+
+      <!-- Contenido Principal: Bandeja de Solicitudes y Vistas Admin -->
+      <main class="content">
+        <!-- VISTA DE SOLICITUDES -->
+        <div id="solicitudes-view">
+          <div class="content-header">
+            <h2 id="bandeja-titulo">Todas las Solicitudes</h2>
+            <p id="bandeja-descripcion">Consulta el estado actual de los trámites en curso.</p>
+          </div>
+
+          <!-- Buscador de Solicitudes -->
+          <div style="margin-bottom: 1.2rem; max-width: 400px;">
+            <input type="text" id="buscador-solicitudes" placeholder="🔍 Buscar por código, solicitante, tipo o C.I...." oninput="renderizarSolicitudes()">
+          </div>
+
+          <!-- Tabla de Solicitudes -->
+          <div class="table-container">
+            <table id="solicitudes-tabla">
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Tipo de Solicitud</th>
+                  <th>Solicitante</th>
+                  <th>Última Modificación</th>
+                  <th>Validaciones</th>
+                  <th>Estado</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody id="solicitudes-list">
+                <!-- Cargado dinámicamente -->
+                <tr>
+                  <td colspan="7" class="text-center">Cargando solicitudes...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- VISTA DE ADMINISTRACIÓN DE USUARIOS -->
+        <div id="admin-usuarios-view" class="hidden">
+          <div class="content-header"
+            style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <div>
+              <h2>Gestión de Usuarios</h2>
+              <p>Crea, edita o elimina las credenciales del sistema.</p>
+            </div>
+            <button class="btn btn-primary" onclick="abrirModalUsuario()">➕ Nuevo Usuario</button>
+          </div>
+
+          <div id="admin-usuarios-segmented-container">
+            <!-- Cargado dinámicamente agrupado por área/rol -->
+          </div>
+        </div>
+
+        <!-- VISTA DE ADMINISTRACIÓN DE FORMULARIOS -->
+        <div id="admin-formularios-view" class="hidden">
+          <div class="content-header"
+            style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <div>
+              <h2>Plantillas de Formularios</h2>
+              <p>Edita las definiciones de los formularios dinámicos y sus áreas encargadas.</p>
+            </div>
+            <button class="btn btn-primary" onclick="abrirModalPlantilla()">➕ Nueva Plantilla</button>
+          </div>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nombre Formulario</th>
+                  <th>Descripción</th>
+                  <th>Áreas Validadoras</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody id="admin-formularios-list">
+                <!-- Cargado dinámicamente -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- VISTA DE PRUEBA DE CORREOS -->
+        <div id="admin-correos-view" class="hidden">
+          <div class="content-header">
+            <div>
+              <h2>Prueba de Envío de Correos</h2>
+              <p>Parametriza y envía correos electrónicos de prueba para verificar la integración SMTP.</p>
+            </div>
+          </div>
+
+          <div class="card" style="max-width: 600px; padding: 1.5rem; background: var(--bg-card); border-radius: var(--radius-md); border: 1px solid var(--border-color); box-shadow: var(--shadow-sm); margin-top: 1rem;">
+            <form id="correo-prueba-form">
+              <div class="form-group" style="margin-bottom: 1.2rem;">
+                <label for="mail-destinatario">Destinatario (Para) *</label>
+                <input type="email" id="mail-destinatario" required placeholder="correo.destinatario@msp.gob.ec" style="width: 100%; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem 0.75rem; background: #FFF; outline: none; transition: border-color 0.2s;">
+              </div>
+
+              <div class="form-group" style="margin-bottom: 1.2rem;">
+                <label for="mail-cc">Copiar a (CC)</label>
+                <input type="text" id="mail-cc" placeholder="correo.copia1@msp.gob.ec, correo.copia2@msp.gob.ec" style="width: 100%; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem 0.75rem; background: #FFF; outline: none;">
+                <span class="form-help-text">Separa múltiples correos con comas.</span>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 1.2rem;">
+                <label for="mail-asunto">Asunto *</label>
+                <input type="text" id="mail-asunto" required placeholder="Ej: [SVT] Notificación de Solicitud de Prueba" style="width: 100%; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem 0.75rem; background: #FFF; outline: none;">
+              </div>
+
+              <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label for="mail-cuerpo">Cuerpo del Correo *</label>
+                <textarea id="mail-cuerpo" required placeholder="Escribe el cuerpo del mensaje..." style="width: 100%; height: 120px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem 0.75rem; background: #FFF; outline: none; resize: vertical; font-family: inherit; line-height: 1.4;"></textarea>
+              </div>
+
+              <button type="submit" id="btn-enviar-correo" class="btn btn-primary btn-block" style="width: 100%;">⚡ Enviar Correo de Prueba</button>
+            </form>
+
+            <div id="correo-resultado-container" class="hidden" style="margin-top: 1.5rem; padding: 1rem; border-radius: var(--radius-md); font-size: 0.85rem; line-height: 1.5; border: 1px solid transparent;">
+              <!-- Resultado inyectado por app.js -->
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- MODAL PARA CREAR / EDITAR SOLICITUD -->
+  <div id="modal-solicitud" class="modal hidden">
+    <div class="modal-content modal-solicitud-width">
+      <div class="modal-header">
+        <h3 id="modal-solicitud-titulo">Registrar Solicitud Técnica</h3>
+        <span class="close-btn" onclick="cerrarModal('modal-solicitud')">&times;</span>
+      </div>
+
+      <form id="solicitud-form">
+        <input type="hidden" id="solicitud-id">
+
+        <div class="modal-body" style="padding:1.5rem;">
+          <div class="form-group">
+            <label for="select-tipo-solicitud">Tipo de Solicitud</label>
+            <select id="select-tipo-solicitud" required>
+              <option value="">-- Seleccione un tipo --</option>
+              <!-- Cargado dinámicamente -->
+            </select>
+          </div>
+
+          <div id="campos-dinamicos-container">
+            <!-- Aquí se inyectan los campos específicos según el tipo de solicitud -->
+            <p class="form-help-text">Selecciona un tipo de solicitud para ver los campos requeridos.</p>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="cerrarModal('modal-solicitud')">Cancelar</button>
+          <button type="button" id="btn-guardar-borrador" class="btn btn-outline">Guardar Borrador</button>
+          <button type="submit" id="btn-enviar-revision" class="btn btn-primary">Enviar a Revisión</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE DETALLE DE SOLICITUD (VISTA TÉCNICA Y AUDITORÍA) -->
+  <div id="modal-detalle" class="modal hidden">
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <h3>Detalle de la Solicitud <span id="det-codigo"></span></h3>
+        <span class="close-btn" onclick="cerrarModal('modal-detalle')">&times;</span>
+      </div>
+
+      <div class="modal-body-grid">
+        <!-- Izquierda: Datos de la solicitud -->
+        <div class="detalle-datos">
+          <div class="section-title">Información del Formulario</div>
+
+          <div class="detail-row">
+            <span class="label">Tipo:</span>
+            <span id="det-tipo" class="value font-bold"></span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Solicitante:</span>
+            <span id="det-solicitante" class="value"></span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Fecha Registro:</span>
+            <span id="det-fecha" class="value"></span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Estado Actual:</span>
+            <span id="det-estado" class="badge"></span>
+          </div>
+
+          <div id="det-campos-valores" class="detail-fields-card">
+            <!-- Valores dinámicos del formulario -->
+          </div>
+
+          <!-- Acciones Adicionales (Edición, Descargas, Reapertura) -->
+          <div id="det-acciones-adicionales">
+            <!-- Rellenado dinámicamente en app.js -->
+          </div>
+        </div>
+
+        <!-- Derecha: Estado de Validaciones e Historial -->
+        <div class="detalle-flujo" id="detalle-flujo-seccion">
+          <div class="section-title">Validaciones por Área</div>
+          <div id="det-aprobaciones-lista" class="aprobaciones-list">
+            <!-- Lista de áreas con estados (Pendiente / Aprobado) -->
+          </div>
+
+          <!-- PANEL DE ACCIÓN PARA TÉCNICOS (Si corresponde) -->
+          <div id="panel-acciones-tecnicas" class="action-card hidden">
+            <h4>Acciones de Validación Técnica</h4>
+            <p class="form-help-text">Revisa los datos a la izquierda. Puedes validar o reportar una inconsistencia.</p>
+            <div id="panel-asignacion-container" style="margin-bottom:1rem;"></div>
+
+            <div class="action-buttons-row" style="margin-bottom: 1rem;">
+              <button id="btn-aprobar-tecnico" class="btn btn-success btn-block" style="width: 100%;">✅ Aprobar Sección</button>
+            </div>
+
+            <div class="observacion-input-area">
+              <label for="observacion-texto">Observaciones / Comentarios</label>
+              <textarea id="observacion-texto"
+                placeholder="Escribe el motivo del rechazo, recomendación u observación..."></textarea>
+              <div style="display:flex; gap:0.5rem; margin-top:0.5rem; flex-wrap:wrap;">
+                <button id="btn-aprobar-con-observacion" class="btn btn-outline btn-sm"
+                  style="flex:1; border-color:var(--success-color); color:var(--success-color); margin:0;">📝 Aprobar con Obs.</button>
+                <button id="btn-observar-tecnico" class="btn btn-danger btn-sm" style="flex:1; margin:0;">⚠️ Registrar Observación y Reportar Observado</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- HISTORIAL DE OBSERVACIONES -->
+          <div class="section-title">Historial de Observaciones</div>
+          <div id="det-observaciones-lista" class="observaciones-timeline">
+            <!-- Línea de tiempo de observaciones -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE ADMINISTRACIÓN DE USUARIOS -->
+  <div id="modal-usuario" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-usuario-titulo">Registrar Usuario</h3>
+        <span class="close-btn" onclick="cerrarModal('modal-usuario')">&times;</span>
+      </div>
+      <form id="usuario-form">
+        <div class="modal-body" style="padding:1.5rem;">
+          <input type="hidden" id="usuario-id">
+          <div class="form-group">
+            <label for="usr-nombre">Nombre Completo</label>
+            <input type="text" id="usr-nombre" required placeholder="Ej. Juan Pérez">
+          </div>
+          <div class="form-group">
+            <label for="usr-cedula">Número de Cédula</label>
+            <input type="text" id="usr-cedula" required placeholder="Ej. 1712345678">
+          </div>
+          <div class="form-group">
+            <label for="usr-cargo">Cargo</label>
+            <input type="text" id="usr-cargo" required placeholder="Ej. Analista de Redes">
+          </div>
+          <div class="form-group hidden" id="usr-direccion-proyecto-group">
+            <label for="usr-direccion-proyecto">Dirección/Proyecto al que pertenece</label>
+            <input type="text" id="usr-direccion-proyecto" placeholder="Ej. Dirección de TICs / Proyecto X">
+          </div>
+          <div class="form-group">
+            <label for="usr-username">Correo Institucional (Usuario)</label>
+            <input type="text" id="usr-username" required placeholder="Ej. juan.perez@msp.gob.ec">
+          </div>
+          <div class="form-group">
+            <label for="usr-password">Contraseña</label>
+            <input type="password" id="usr-password" placeholder="Ingresa contraseña">
+            <span class="form-help-text" id="usr-password-help">Para usuarios nuevos es obligatoria.</span>
+          </div>
+          <div class="form-group">
+            <label for="usr-rol">Rol</label>
+            <select id="usr-rol" required onchange="cambiarSelectorRol()">
+              <option value="solicitante">Solicitante</option>
+              <option value="tecnico">Técnico (Validador)</option>
+              <option value="admin">Administrador</option>
+            </select>
+          </div>
+          <div class="form-group hidden" id="usr-area-group">
+            <label for="usr-area">Área Asignada</label>
+            <select id="usr-area" onchange="cambiarSelectorRol()">
+              <option value="">-- Selecciona el área --</option>
+              <option value="seguridad">Gestión Interna de Seguridad Informática y Calidad de Software - (GISICS)
+              </option>
+              <option value="gibdd">Gestión Interna de Base de Datos - (GIBD)</option>
+              <option value="giitrc">Gestión Interna de Infraestructura - (GIITRC)</option>
+              <option value="osi">Oficial de Seguridad de la Información - (OSI)</option>
+              <option value="director">Director DTIC MSP</option>
+            </select>
+          </div>
+          <div class="form-group hidden" id="usr-firma-group">
+            <label
+              style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: normal; margin-top: 0.5rem;">
+              <input type="checkbox" id="usr-firma-documentos">
+              <span>Firmante de documentos (Sólo para OSI)</span>
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="cerrarModal('modal-usuario')">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar Usuario</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE ADMINISTRACIÓN DE PLANTILLAS DE FORMULARIOS -->
+  <div id="modal-plantilla" class="modal hidden">
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <h3 id="modal-plantilla-titulo">Editar Plantilla de Formulario</h3>
+        <span class="close-btn" onclick="cerrarModal('modal-plantilla')">&times;</span>
+      </div>
+      <form id="plantilla-form">
+        <input type="hidden" id="plantilla-id">
+
+        <div class="modal-body-grid" style="padding:1.5rem;">
+          <!-- Izquierda: Datos Básicos y Áreas -->
+          <div>
+            <div class="section-title">Datos Generales</div>
+            <div class="form-group">
+              <label for="plt-codigo">Código del Formulario (ej. ACC-RED)</label>
+              <input type="text" id="plt-codigo" required placeholder="Ej. ACC-RED" style="text-transform: uppercase;">
+            </div>
+            <div class="form-group">
+              <label for="plt-nombre">Nombre del Formulario</label>
+              <input type="text" id="plt-nombre" required>
+            </div>
+            <div class="form-group">
+              <label for="plt-descripcion">Descripción</label>
+              <textarea id="plt-descripcion" required style="min-height:80px;"></textarea>
+            </div>
+
+            <div class="section-title">Áreas Validadoras Requeridas</div>
+            <div style="display:flex; flex-direction:column; gap:0.5rem; margin-bottom:1.5rem;">
+              <label style="display:flex; align-items:center; gap:0.5rem; font-weight:normal;">
+                <input type="checkbox" id="chk-val-seguridad" value="seguridad"> 🔒 Gestión Interna de Seguridad
+                Informática y Calidad de Software - (GISICS)
+              </label>
+              <label style="display:flex; align-items:center; gap:0.5rem; font-weight:normal;">
+                <input type="checkbox" id="chk-val-gibdd" value="gibdd"> 💾 Gestión Interna de Base de Datos - (GIBD)
+              </label>
+              <label style="display:flex; align-items:center; gap:0.5rem; font-weight:normal;">
+                <input type="checkbox" id="chk-val-giitrc" value="giitrc"> 🌐 Gestión Interna de Infraestructura -
+                (GIITRC)
+              </label>
+              <label style="display:flex; align-items:center; gap:0.5rem; font-weight:normal;">
+                <input type="checkbox" id="chk-val-osi" value="osi"> 👁️ Oficial de Seguridad de la Información - (OSI)
+              </label>
+              <label style="display:flex; align-items:center; gap:0.5rem; font-weight:normal;">
+                <input type="checkbox" id="chk-val-director" value="director"> 👔 Director DTIC MSP
+              </label>
+            </div>
+          </div>
+
+          <!-- Derecha: Constructor Visual de Campos -->
+          <div>
+            <div class="section-title">Campos del Formulario</div>
+            <p class="form-help-text" style="margin-bottom:1rem;">
+              Define los campos que el solicitante deberá completar en este formulario.
+            </p>
+
+            <div id="constructor-campos-container"
+              style="display:flex; flex-direction:column; gap:0.8rem; max-height:550px; overflow-y:auto; margin-bottom:1rem; padding-right:5px;">
+              <!-- Aquí se inyectan dinámicamente las filas de los campos -->
+            </div>
+
+            <button type="button" class="btn btn-outline btn-block btn-sm" id="btn-agregar-campo-visual"
+              onclick="agregarFilaCampoVisual()">
+              ➕ Agregar Campo
+            </button>
+          </div>
+
+          <!-- Sección de Notificaciones Automáticas por Correo (Full width) -->
+          <div style="grid-column: 1 / -1; background-color: #F0F9FF; border: 1px solid #BAE6FD; border-radius: var(--radius-md); padding: 1.25rem; margin-top: 1.5rem; box-shadow: inset 0 1px 3px rgba(15,23,42,0.02);">
+            <div class="section-title" style="margin-bottom: 0.5rem; border-bottom: 1px solid #BAE6FD; padding-bottom: 0.3rem;">✉️ Configuración de Notificación Automática (Correo)</div>
+            <p class="form-help-text" style="margin-bottom: 1.2rem; color: var(--text-secondary);">
+              Configura un correo para que se envíe automáticamente la primera vez que el solicitante mande a revisión este formulario. Si se dejan en blanco, no se enviará ninguna notificación. 
+              <br><strong>Nota:</strong> El solicitante siempre se incluirá automáticamente en copia (CC) para que reciba la confirmación de su ticket.
+            </p>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.2rem;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="plt-mail-destinatario">Destinatario (Para)</label>
+                <input type="email" id="plt-mail-destinatario" placeholder="ej: mesa.servicios@msp.gob.ec">
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="plt-mail-cc">Copiar a (CC)</label>
+                <input type="text" id="plt-mail-cc" placeholder="ej: copia1@msp.gob.ec, copia2@msp.gob.ec">
+                <span class="form-help-text">Separa múltiples correos con comas. El solicitante se agregará automáticamente.</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="plt-mail-asunto">Asunto del Correo</label>
+              <input type="text" id="plt-mail-asunto" placeholder="ej: Nueva Solicitud {codigo} de {solicitante}">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="plt-mail-cuerpo">Cuerpo del Correo</label>
+              <textarea id="plt-mail-cuerpo" placeholder="Escribe el cuerpo del correo..." style="height: 100px; min-height: 80px;"></textarea>
+              <span class="form-help-text">Variables dinámicas: <code>{codigo}</code>, <code>{solicitante}</code>, <code>{tipo_solicitud}</code>, <code>{fecha}</code>, <code>{link}</code></span>
+            </div>
+
+            <!-- Checkbox de notificaciones de progreso -->
+            <div class="form-group" style="margin-top: 1.2rem; margin-bottom: 0; padding-top: 0.8rem; border-top: 1px dashed var(--border-color);">
+              <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: normal;">
+                <input type="checkbox" id="plt-mail-progreso" checked>
+                <span><strong>Enviar notificaciones de progreso al solicitante</strong> (Aprobación de áreas, observaciones y reaperturas).</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="cerrarModal('modal-plantilla')">Cancelar</button>
+          <button type="button" id="btn-preview-plantilla" class="btn btn-outline" style="color: var(--accent-hover); border-color: var(--accent-hover); margin-right: auto;">📄 Previsualizar PDF</button>
+          <button type="submit" class="btn btn-primary">Guardar Plantilla</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+
+</html>
