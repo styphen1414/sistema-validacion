@@ -28,6 +28,18 @@ function obtenerNombreArea(areaKey) {
   return NOMBRES_AREAS[areaKey] || areaKey;
 }
 
+function escaparHTML(str) {
+  if (str === null || str === undefined) return '';
+  if (typeof str !== 'string') str = String(str);
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+    .replace(/\//g, '&#x2F;');
+}
+
 // Diccionario de Nombres Oficiales de Áreas (Sin Siglas ni Acrónimos al final)
 const NOMBRES_AREAS_SIN_SIGLAS = {
   seguridad: 'Gestión Interna de Seguridad Informática y Calidad de Software',
@@ -1061,9 +1073,9 @@ function renderizarSolicitudes() {
     }
 
     tr.innerHTML = `
-      <td class="font-bold" style="font-size: 0.85rem; word-break: break-all;">${codigoSeguimiento}</td>
-      <td>${sol.tipo_nombre}</td>
-      <td>${sol.solicitante_nombre}</td>
+      <td class="font-bold" style="font-size: 0.85rem; word-break: break-all;">${escaparHTML(codigoSeguimiento)}</td>
+      <td>${escaparHTML(sol.tipo_nombre)}</td>
+      <td>${escaparHTML(sol.solicitante_nombre)}</td>
       <td>${fecha}</td>
       <td>${areaStatusBadge}</td>
       <td><span class="badge badge-${sol.estado}">${sol.estado.replace('_', ' ')}</span></td>
@@ -1667,8 +1679,8 @@ async function verDetalle(id, isRefresh = false) {
           }
         }
         valItem.innerHTML = `
-          <strong>${campo.label}:</strong>
-          <span>${valor}</span>
+          <strong>${escaparHTML(campo.label)}:</strong>
+          <span>${escaparHTML(valor)}</span>
         `;
         detCamposValores.appendChild(valItem);
       } else if (campo.type === 'checkbox') {
@@ -1680,7 +1692,7 @@ async function verDetalle(id, isRefresh = false) {
         const displayVal = isChecked ? '<strong>[X]</strong>' : '<strong>[ ]</strong>';
 
         valItem.innerHTML = `
-          <strong>${campo.label}:</strong>
+          <strong>${escaparHTML(campo.label)}:</strong>
           <span>${displayVal}</span>
         `;
         detCamposValores.appendChild(valItem);
@@ -1694,8 +1706,8 @@ async function verDetalle(id, isRefresh = false) {
           valor = formatearValorFirmante(rawVal);
         }
         valItem.innerHTML = `
-          <strong>${campo.label}:</strong>
-          <span>${valor}</span>
+          <strong>${escaparHTML(campo.label)}:</strong>
+          <span>${escaparHTML(valor)}</span>
         `;
         detCamposValores.appendChild(valItem);
       }
@@ -1709,8 +1721,8 @@ async function verDetalle(id, isRefresh = false) {
       card.className = `aprobacion-card ${ap.estado === 'aprobado' ? 'aprobado' : ''}`;
       
       const fecha = ap.fecha ? new Date(ap.fecha).toLocaleDateString('es-ES') : '';
-      const revisor = ap.tecnico_nombre ? `por ${ap.tecnico_nombre}` : '';
-      const obsHtml = ap.observacion ? `<div class="aprobacion-obs"><strong>Obs:</strong> "${ap.observacion}"</div>` : '';
+      const revisor = ap.tecnico_nombre ? `por ${escaparHTML(ap.tecnico_nombre)}` : '';
+      const obsHtml = ap.observacion ? `<div class="aprobacion-obs"><strong>Obs:</strong> "${escaparHTML(ap.observacion)}"</div>` : '';
       
       const estadoTexto = ap.estado === 'pendiente' && ap.tecnico_nombre 
         ? 'ASIGNADO' 
@@ -1720,9 +1732,9 @@ async function verDetalle(id, isRefresh = false) {
 
       card.innerHTML = `
         <div class="aprobacion-card-header">
-          <span class="area-name">🛡️ ${obtenerNombreArea(ap.area)}</span>
+          <span class="area-name">🛡️ ${escaparHTML(obtenerNombreArea(ap.area))}</span>
           <div class="status-details">
-            <strong>${estadoTexto}</strong>
+            <strong>${escaparHTML(estadoTexto)}</strong>
             ${revisorInfo}
           </div>
         </div>
@@ -1743,9 +1755,9 @@ async function verDetalle(id, isRefresh = false) {
         const fecha = new Date(obs.fecha).toLocaleString('es-ES');
         item.innerHTML = `
           <div class="obs-meta">
-            <strong>${obs.autor_nombre} (${obtenerNombreArea(obs.area)})</strong> - ${fecha}
+            <strong>${escaparHTML(obs.autor_nombre)} (${escaparHTML(obtenerNombreArea(obs.area))})</strong> - ${fecha}
           </div>
-          <div class="obs-text">${obs.texto}</div>
+          <div class="obs-text">${escaparHTML(obs.texto)}</div>
         `;
         detObservacionesLista.appendChild(item);
       });
@@ -1818,7 +1830,7 @@ async function verDetalle(id, isRefresh = false) {
             // Asignado a otro técnico del mismo área
             panelAsignacionContainer.innerHTML = `
               <div class="alert alert-danger" style="margin-bottom: 0; font-size: 0.8rem; padding: 0.5rem 0.8rem;">
-                🚫 Asignado a otro técnico: <strong>${aprobacionArea.tecnico_nombre || 'Analista'}</strong>.
+                🚫 Asignado a otro técnico: <strong>${escaparHTML(aprobacionArea.tecnico_nombre || 'Analista')}</strong>.
               </div>
             `;
             if (actionsButtonsRow) actionsButtonsRow.style.display = 'none';
@@ -2329,18 +2341,18 @@ async function cargarUsuariosAdmin() {
         const tbody = table.querySelector('tbody');
         filtered.forEach(usr => {
           const tr = document.createElement('tr');
-          let detailsHtml = `<strong>C.I.:</strong> ${usr.cedula || 'N/A'}<br><small style="color:var(--text-secondary)">${usr.cargo || 'N/A'}</small>`;
+          let detailsHtml = `<strong>C.I.:</strong> ${escaparHTML(usr.cedula || 'N/A')}<br><small style="color:var(--text-secondary)">${escaparHTML(usr.cargo || 'N/A')}</small>`;
           if (usr.rol === 'solicitante' && usr.direccion_proyecto) {
-            detailsHtml += `<br><small style="color:var(--accent-color); font-weight: 500;">Dir/Proyecto: ${usr.direccion_proyecto}</small>`;
+            detailsHtml += `<br><small style="color:var(--accent-color); font-weight: 500;">Dir/Proyecto: ${escaparHTML(usr.direccion_proyecto)}</small>`;
           }
           const cedulaCargo = detailsHtml;
           
-          let nombreHtml = usr.nombre;
-
+          let nombreHtml = escaparHTML(usr.nombre);
+ 
           tr.innerHTML = `
             <td class="font-bold">${nombreHtml}</td>
             <td>${cedulaCargo}</td>
-            <td><code>${usr.username}</code></td>
+            <td><code>${escaparHTML(usr.username)}</code></td>
             <td><span class="badge badge-${usr.rol}">${usr.rol}</span></td>
             <td>
               <button class="btn btn-outline btn-sm" onclick="abrirModalUsuario(${JSON.stringify(usr).replace(/"/g, '&quot;')})">✏️ Editar</button>
@@ -2530,8 +2542,8 @@ async function cargarFormulariosAdmin() {
       
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td class="font-bold"><span style="color:var(--accent-color);">[${form.codigo}]</span> ${form.nombre}</td>
-        <td style="max-width:300px; font-size:0.8rem; color:var(--text-secondary);">${form.descripcion}</td>
+        <td class="font-bold"><span style="color:var(--accent-color);">[${escaparHTML(form.codigo)}]</span> ${escaparHTML(form.nombre)}</td>
+        <td style="max-width:300px; font-size:0.8rem; color:var(--text-secondary);">${escaparHTML(form.descripcion)}</td>
         <td>${areasStr}</td>
         <td>
           <button class="btn btn-outline btn-sm" onclick="abrirModalPlantilla(${JSON.stringify(form).replace(/"/g, '&quot;')})">✏️ Editar Plantilla</button>

@@ -46,6 +46,17 @@ CAMBIOS REALIZADOS
      * 'debouncedBuscar()'
    - Esto permite que los controladores onclick y oninput del HTML
      invocados desde el DOM actualicen la bandeja del cliente sin fallar.
+   - Implementacion de proteccion integral contra XSS (Cross-Site Scripting):
+     * Creacion de la funcion global 'escaparHTML(str)' para sanitizar
+       caracteres HTML maliciosos (&, <, >, ", ', /).
+     * Aplicacion de 'escaparHTML' en el renderizado de la bandeja de entrada
+       (nombre de solicitante, codigo de seguimiento, tipo de solicitud).
+     * Sanitizacion de datos dinamicos del formulario en el modal de detalle
+       (valores de texto, textareas, listas e informativos).
+     * Sanitizacion de nombres de tecnicos revisores, estados y observaciones
+       historicas ingresadas por los validadores en el modal.
+     * Sanitizacion de los modulos de administracion (nombres de usuarios, 
+       cargos, correos, codigos y nombres de plantillas de formularios).
 
 3. FRONTEND (public/index.html):
    - Contenedor de controles de paginacion ('#paginacion-container') y
