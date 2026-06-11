@@ -303,6 +303,13 @@ function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
       camposDinamicosContainer.appendChild(paragraphEl);
       return;
     }
+    if (campo.type === 'info_no_pdf') {
+      const paragraphEl = document.createElement('p');
+      paragraphEl.className = 'form-section-paragraph info-no-pdf-paragraph';
+      paragraphEl.innerHTML = `<strong>ℹ️ Informativo:</strong> ${campo.label}`;
+      camposDinamicosContainer.appendChild(paragraphEl);
+      return;
+    }
 
     if (campo.type === 'checkbox') {
       const checkboxContainer = document.createElement('div');
@@ -329,7 +336,7 @@ function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
       return;
     }
 
-    if (campo.type === 'grid' || campo.type === 'fixed_grid') {
+    if (campo.type === 'grid' || campo.type === 'fixed_grid' || campo.type === 'fixed_grid_dynamic_cols' || campo.type === 'fixed_grid_fixed_cols') {
       const gridContainer = document.createElement('div');
       gridContainer.className = 'grid-container form-group';
       gridContainer.dataset.name = campo.name;
@@ -345,14 +352,32 @@ function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
       const thead = document.createElement('thead');
       const headerRow = document.createElement('tr');
       
-      // Si es grid de filas fijas legacy, agregar columna inicial para las etiquetas fijas
-      if (campo.type === 'fixed_grid' && Array.isArray(campo.rows) && campo.rows.length > 0) {
+      // Si es grid de filas fijas, agregar columna inicial para las etiquetas fijas
+      const isFixedGridType = (campo.type === 'fixed_grid' || campo.type === 'fixed_grid_dynamic_cols' || campo.type === 'fixed_grid_fixed_cols');
+      if (isFixedGridType && Array.isArray(campo.rows) && campo.rows.length > 0) {
         const thLabel = document.createElement('th');
         thLabel.textContent = campo.row_label || 'Descripción / Fila';
         headerRow.appendChild(thLabel);
       }
 
-      const columns = campo.columns || [];
+      let columns = [...(campo.columns || [])];
+      if (campo.type === 'fixed_grid_dynamic_cols') {
+        const existingData = valoresExistentes ? valoresExistentes[campo.name] : null;
+        if (Array.isArray(existingData) && existingData.length > 0) {
+          const allKeys = new Set();
+          existingData.forEach(row => {
+            Object.keys(row).forEach(k => allKeys.add(k));
+          });
+          const rowLabelKey = campo.row_label || 'Descripción / Fila';
+          const predefinedColNames = columns.map(col => typeof col === 'object' ? col.name : col);
+          allKeys.forEach(key => {
+            if (key !== rowLabelKey && key !== 'Descripción / Fila' && !predefinedColNames.includes(key)) {
+              columns.push({ name: key, type: 'text', required: false });
+            }
+          });
+        }
+      }
+
       columns.forEach(col => {
         const colName = typeof col === 'object' ? col.name : col;
         const colType = typeof col === 'object' ? col.type : 'text';
@@ -365,7 +390,7 @@ function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
         headerRow.appendChild(th);
       });
 
-      // Solo el grid dinámico tiene columna de acción para borrar filas
+      // Solo el grid dinámico legacy tiene columna de acción para borrar filas
       if (campo.type === 'grid') {
         const thAction = document.createElement('th');
         thAction.textContent = 'Acción';
@@ -384,8 +409,8 @@ function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
         const tr = document.createElement('tr');
         tr.className = 'grid-row';
         
-        // Si es grid de filas fijas legacy, insertar la celda de descripción de fila predefinida
-        if (campo.type === 'fixed_grid' && Array.isArray(campo.rows) && campo.rows.length > 0) {
+        // Si es grid de filas fijas, insertar la celda de descripción de fila predefinida
+        if (isFixedGridType && Array.isArray(campo.rows) && campo.rows.length > 0) {
           const tdLabel = document.createElement('td');
           tdLabel.className = 'fixed-row-label';
           
@@ -568,7 +593,7 @@ function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
         tbody.appendChild(tr);
       };
 
-      if (campo.type === 'fixed_grid') {
+      if (isFixedGridType) {
         const existingData = valoresExistentes ? valoresExistentes[campo.name] : null;
         const rows = campo.rows || [];
         if (rows.length > 0) {
@@ -584,6 +609,52 @@ function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
           } else {
             addRowFn(); // Renderizar exactamente 1 fila predeterminada
           }
+        }
+
+        // Para fixed_grid_dynamic_cols, permitir al solicitante agregar columnas
+        if (campo.type === 'fixed_grid_dynamic_cols') {
+          const addColBtn = document.createElement('button');
+          addColBtn.type = 'button';
+          addColBtn.className = 'btn btn-outline btn-sm';
+          addColBtn.style.marginTop = '0.5rem';
+          addColBtn.innerHTML = '➕ Agregar Columna';
+          addColBtn.onclick = () => {
+            const colName = prompt('Ingrese el nombre de la nueva columna:');
+            if (!colName) return;
+            const cleanedName = colName.trim();
+            if (cleanedName === '') return;
+
+            // Verificar si ya existe esa columna
+            const existingHeaders = Array.from(thead.querySelectorAll('th')).map(th => th.textContent.replace(' *', '').trim());
+            const rowLabelKey = campo.row_label || 'Descripción / Fila';
+            if (cleanedName === rowLabelKey || cleanedName === 'Descripción / Fila' || existingHeaders.includes(cleanedName)) {
+              alert('La columna ya existe.');
+              return;
+            }
+
+            // 1. Agregar th al thead
+            const th = document.createElement('th');
+            th.textContent = cleanedName;
+            thead.firstElementChild.appendChild(th);
+
+            // 2. Agregar td con input a cada fila del tbody
+            const trs = tbody.querySelectorAll('.grid-row');
+            trs.forEach(tr => {
+              const td = document.createElement('td');
+              td.style.padding = '0.3rem';
+              td.style.border = '1px solid var(--border-color)';
+
+              const input = document.createElement('input');
+              input.className = 'grid-cell-input';
+              input.dataset.column = cleanedName;
+              input.type = 'text';
+              input.placeholder = `Ingresa ${cleanedName.toLowerCase()}`;
+              input.maxLength = 100;
+              td.appendChild(input);
+              tr.appendChild(td);
+            });
+          };
+          gridContainer.appendChild(addColBtn);
         }
       } else {
         const existingData = valoresExistentes ? valoresExistentes[campo.name] : null;
@@ -1451,7 +1522,12 @@ async function verDetalle(id, isRefresh = false) {
         paragraphEl.className = 'detail-section-paragraph';
         paragraphEl.textContent = campo.label;
         detCamposValores.appendChild(paragraphEl);
-      } else if (campo.type === 'grid' || campo.type === 'fixed_grid') {
+      } else if (campo.type === 'info_no_pdf') {
+        const paragraphEl = document.createElement('p');
+        paragraphEl.className = 'detail-section-paragraph info-no-pdf-detail';
+        paragraphEl.innerHTML = `<strong>ℹ️ Informativo:</strong> ${campo.label}`;
+        detCamposValores.appendChild(paragraphEl);
+      } else if (campo.type === 'grid' || campo.type === 'fixed_grid' || campo.type === 'fixed_grid_dynamic_cols' || campo.type === 'fixed_grid_fixed_cols') {
         const gridWrapper = document.createElement('div');
         gridWrapper.className = 'detail-grid-wrapper';
         
@@ -1460,8 +1536,24 @@ async function verDetalle(id, isRefresh = false) {
         gridWrapper.appendChild(label);
 
         const gridData = sol.datos[campo.name];
-        let columns = campo.columns || [];
-        if (campo.type === 'fixed_grid' && Array.isArray(campo.rows) && campo.rows.length > 0) {
+        let columns = [...(campo.columns || [])];
+        
+        if (campo.type === 'fixed_grid_dynamic_cols' && Array.isArray(gridData) && gridData.length > 0) {
+          const allKeys = new Set();
+          gridData.forEach(row => {
+            Object.keys(row).forEach(k => allKeys.add(k));
+          });
+          const rowLabelKey = campo.row_label || 'Descripción / Fila';
+          const predefinedColNames = columns.map(col => typeof col === 'object' ? col.name : col);
+          allKeys.forEach(key => {
+            if (key !== rowLabelKey && key !== 'Descripción / Fila' && !predefinedColNames.includes(key)) {
+              columns.push({ name: key, type: 'text' });
+            }
+          });
+        }
+
+        const isFixedGridType = (campo.type === 'fixed_grid' || campo.type === 'fixed_grid_dynamic_cols' || campo.type === 'fixed_grid_fixed_cols');
+        if (isFixedGridType && Array.isArray(campo.rows) && campo.rows.length > 0) {
           const rowLabelName = campo.row_label || 'Descripción / Fila';
           columns = [{ name: rowLabelName, type: 'text' }, ...columns];
         }
@@ -2546,7 +2638,7 @@ function actualizarFilaCampoRequerido(select) {
   if (selectOptsBuilder) selectOptsBuilder.style.display = 'none';
   if (fixedGridRowLabelBuilder) fixedGridRowLabelBuilder.style.display = 'none';
 
-  if (['title', 'subtitle', 'paragraph'].includes(select.value)) {
+  if (['title', 'subtitle', 'paragraph', 'info_no_pdf'].includes(select.value)) {
     reqLabel.style.display = 'none';
     reqCheckbox.checked = false;
   } else if (select.value === 'grid') {
@@ -2559,15 +2651,24 @@ function actualizarFilaCampoRequerido(select) {
     if (list.children.length === 0) {
       agregarFilaColumnaVisual(list);
     }
-  } else if (select.value === 'fixed_grid') {
+  } else if (select.value === 'fixed_grid' || select.value === 'fixed_grid_dynamic_cols' || select.value === 'fixed_grid_fixed_cols') {
     reqLabel.style.display = 'none';
     reqCheckbox.checked = false;
     colsBuilder.style.display = 'flex';
+    if (rowsBuilder) rowsBuilder.style.display = 'flex';
+    if (fixedGridRowLabelBuilder) fixedGridRowLabelBuilder.style.display = 'flex';
     
     // Si la lista de columnas está vacía, agregar una por defecto
     const colList = colsBuilder.querySelector('.grid-columns-list');
     if (colList.children.length === 0) {
       agregarFilaColumnaVisual(colList);
+    }
+    // Si la lista de filas está vacía, agregar una por defecto
+    if (rowsBuilder) {
+      const rowList = rowsBuilder.querySelector('.grid-rows-list');
+      if (rowList.children.length === 0) {
+        agregarFilaVisual(rowList);
+      }
     }
   } else if (select.value === 'firmante' || select.value === 'firmante_seccion' || select.value === 'firmante_list') {
     reqLabel.style.display = 'flex';
@@ -2616,6 +2717,10 @@ function agregarFilaCampoVisual(campoObj = null) {
             <option value="grid" ${typeVal === 'grid' ? 'selected' : ''}>Tabla Dinámica (Grid/Filas Múltiples)</option>
             <option value="fixed_grid" ${typeVal === 'fixed_grid' ? 'selected' : ''}>Tabla de Filas Fijas (Grid Fijo)</option>
           </optgroup>
+          <optgroup label="Tablas Avanzadas (Por Filas)">
+            <option value="fixed_grid_dynamic_cols" ${typeVal === 'fixed_grid_dynamic_cols' ? 'selected' : ''}>Tabla por Filas (Columnas Dinámicas por Solicitante)</option>
+            <option value="fixed_grid_fixed_cols" ${typeVal === 'fixed_grid_fixed_cols' ? 'selected' : ''}>Tabla por Filas (Columnas Fijas por Admin)</option>
+          </optgroup>
           <optgroup label="Flujo de Firmantes">
             <option value="firmante" ${typeVal === 'firmante' ? 'selected' : ''}>Firmante Adicional (Nombre)</option>
             <option value="firmante_seccion" ${typeVal === 'firmante_seccion' ? 'selected' : ''}>Firmante Adicional (Solo Firma)</option>
@@ -2625,6 +2730,7 @@ function agregarFilaCampoVisual(campoObj = null) {
             <option value="title" ${typeVal === 'title' ? 'selected' : ''}>Título (Sección)</option>
             <option value="subtitle" ${typeVal === 'subtitle' ? 'selected' : ''}>Subtítulo</option>
             <option value="paragraph" ${typeVal === 'paragraph' ? 'selected' : ''}>Texto Informativo</option>
+            <option value="info_no_pdf" ${typeVal === 'info_no_pdf' ? 'selected' : ''}>Texto Informativo (Oculto en PDF)</option>
           </optgroup>
         </select>
         <label class="campo-required-label">
@@ -2676,7 +2782,7 @@ function agregarFilaCampoVisual(campoObj = null) {
   constructorCamposContainer.appendChild(row);
 
   // Poblar columnas si ya es grid o fixed_grid al cargar
-  if (campoObj && (campoObj.type === 'grid' || campoObj.type === 'fixed_grid') && Array.isArray(campoObj.columns)) {
+  if (campoObj && (campoObj.type === 'grid' || campoObj.type === 'fixed_grid' || campoObj.type === 'fixed_grid_dynamic_cols' || campoObj.type === 'fixed_grid_fixed_cols') && Array.isArray(campoObj.columns)) {
     const list = row.querySelector('.grid-columns-list');
     campoObj.columns.forEach(col => {
       const colObj = typeof col === 'object' ? col : { name: col, type: 'text' };
@@ -2685,7 +2791,7 @@ function agregarFilaCampoVisual(campoObj = null) {
   }
 
   // Poblar filas si ya es fixed_grid al cargar
-  if (campoObj && campoObj.type === 'fixed_grid' && Array.isArray(campoObj.rows)) {
+  if (campoObj && (campoObj.type === 'fixed_grid' || campoObj.type === 'fixed_grid_dynamic_cols' || campoObj.type === 'fixed_grid_fixed_cols') && Array.isArray(campoObj.rows)) {
     const list = row.querySelector('.grid-rows-list');
     campoObj.rows.forEach(r => {
       agregarFilaVisual(list, r);
@@ -2860,7 +2966,7 @@ plantillaForm.addEventListener('submit', async (e) => {
         campoData.options = optionsInput ? optionsInput.value.split(',').map(o => o.trim()).filter(o => o !== '') : [];
       }
 
-      if (type === 'grid' || type === 'fixed_grid') {
+      if (type === 'grid' || type === 'fixed_grid' || type === 'fixed_grid_dynamic_cols' || type === 'fixed_grid_fixed_cols') {
         const columns = [];
         const colRows = f.querySelectorAll('.columna-visual-row');
         colRows.forEach(colRow => {
@@ -2888,7 +2994,7 @@ plantillaForm.addEventListener('submit', async (e) => {
         });
         campoData.columns = columns;
 
-        if (type === 'fixed_grid') {
+        if (type === 'fixed_grid' || type === 'fixed_grid_dynamic_cols' || type === 'fixed_grid_fixed_cols') {
           const rows = [];
           const rowRows = f.querySelectorAll('.fila-visual-row');
           rowRows.forEach(rowRow => {
@@ -3016,7 +3122,7 @@ if (btnPreviewPlantilla) {
           campoData.options = optionsInput ? optionsInput.value.split(',').map(o => o.trim()).filter(o => o !== '') : [];
         }
 
-        if (type === 'grid' || type === 'fixed_grid') {
+        if (type === 'grid' || type === 'fixed_grid' || type === 'fixed_grid_dynamic_cols' || type === 'fixed_grid_fixed_cols') {
           const columns = [];
           const colRows = f.querySelectorAll('.columna-visual-row');
           colRows.forEach(colRow => {
@@ -3044,7 +3150,7 @@ if (btnPreviewPlantilla) {
           });
           campoData.columns = columns;
 
-          if (type === 'fixed_grid') {
+          if (type === 'fixed_grid' || type === 'fixed_grid_dynamic_cols' || type === 'fixed_grid_fixed_cols') {
             const rows = [];
             const rowRows = f.querySelectorAll('.fila-visual-row');
             rowRows.forEach(rowRow => {

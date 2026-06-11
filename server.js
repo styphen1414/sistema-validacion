@@ -1230,7 +1230,7 @@ function generarReportePDFInternal(doc, solicitud, aprobaciones, directorSigner)
 
     doc.fontSize(9.5);
     campos.forEach(campo => {
-      if (campo.type === 'firmante_seccion') return; // Se omite en los detalles técnicos del PDF
+      if (campo.type === 'firmante_seccion' || campo.type === 'info_no_pdf') return; // Se omite en los detalles técnicos del PDF
       doc.x = 50; // Asegurar alineación izquierda reseteando la posición x
       if (campo.type === 'title') {
         doc.moveDown(0.8);
@@ -1252,14 +1252,30 @@ function generarReportePDFInternal(doc, solicitud, aprobaciones, directorSigner)
         doc.font('Helvetica');
         doc.moveDown(0.4);
         doc.fontSize(9.5);
-      } else if (campo.type === 'grid' || campo.type === 'fixed_grid') {
+      } else if (campo.type === 'grid' || campo.type === 'fixed_grid' || campo.type === 'fixed_grid_dynamic_cols' || campo.type === 'fixed_grid_fixed_cols') {
         doc.moveDown(0.5);
         doc.font('Helvetica-Bold').fillColor('#1E3A8A').text(`${campo.label}:`);
         doc.moveDown(0.3);
 
         const gridData = datos[campo.name];
-        let columns = campo.columns || [];
-        if (campo.type === 'fixed_grid' && Array.isArray(campo.rows) && campo.rows.length > 0) {
+        let columns = [...(campo.columns || [])];
+
+        if (campo.type === 'fixed_grid_dynamic_cols' && Array.isArray(gridData) && gridData.length > 0) {
+          const allKeys = new Set();
+          gridData.forEach(row => {
+            Object.keys(row).forEach(k => allKeys.add(k));
+          });
+          const rowLabelKey = campo.row_label || 'Descripción / Fila';
+          const predefinedColNames = columns.map(col => typeof col === 'object' ? col.name : col);
+          allKeys.forEach(key => {
+            if (key !== rowLabelKey && key !== 'Descripción / Fila' && !predefinedColNames.includes(key)) {
+              columns.push({ name: key, type: 'text' });
+            }
+          });
+        }
+
+        const isFixedGridType = (campo.type === 'fixed_grid' || campo.type === 'fixed_grid_dynamic_cols' || campo.type === 'fixed_grid_fixed_cols');
+        if (isFixedGridType && Array.isArray(campo.rows) && campo.rows.length > 0) {
           const rowLabelName = campo.row_label || 'Descripción / Fila';
           columns = [{ name: rowLabelName, type: 'text' }, ...columns];
         }
@@ -2053,14 +2069,19 @@ app.post('/api/admin/tipos-solicitud/preview-pdf', autenticar, esAdmin, async (r
         ];
       } else if (campo.type === 'text_list') {
         mockDatos[campo.name] = ['Opción de Ejemplo A', 'Opción de Ejemplo B'];
-      } else if (campo.type === 'grid' || campo.type === 'fixed_grid') {
+      } else if (campo.type === 'grid' || campo.type === 'fixed_grid' || campo.type === 'fixed_grid_dynamic_cols' || campo.type === 'fixed_grid_fixed_cols') {
         // Generar una fila de ejemplo para grillas
         const row = {};
-        const isLegacyFixed = campo.type === 'fixed_grid' && Array.isArray(campo.rows) && campo.rows.length > 0;
+        const isFixedGrid = (campo.type === 'fixed_grid' || campo.type === 'fixed_grid_dynamic_cols' || campo.type === 'fixed_grid_fixed_cols') && Array.isArray(campo.rows) && campo.rows.length > 0;
         let cols = campo.columns || [];
-        if (isLegacyFixed) {
+        if (isFixedGrid) {
           const rowLabelName = campo.row_label || 'Descripción / Fila';
           cols = [{ name: rowLabelName, type: 'text' }, ...cols];
+        }
+
+        // Si es fixed_grid_dynamic_cols, inyectar una columna dinámica de ejemplo
+        if (campo.type === 'fixed_grid_dynamic_cols') {
+          cols = [...cols, { name: 'Columna Dinámica de Ejemplo', type: 'text' }];
         }
 
         cols.forEach(col => {
@@ -2084,14 +2105,14 @@ app.post('/api/admin/tipos-solicitud/preview-pdf', autenticar, esAdmin, async (r
           }
         });
 
-        if (isLegacyFixed) {
-          // Si es un fixed_grid legacy, generar mock data para las filas fijas configuradas
+        if (isFixedGrid) {
+          // Si es un fixed_grid, generar mock data para las filas fijas configuradas
           const rowLabelName = campo.row_label || 'Descripción / Fila';
           mockDatos[campo.name] = campo.rows.map(rName => {
             return { ...row, [rowLabelName]: rName };
           });
         } else {
-          // Grid dinámico o fixed_grid nuevo sin filas fijas: generar exactamente 1 fila
+          // Grid dinámico o fixed_grid sin filas fijas: generar exactamente 1 fila
           mockDatos[campo.name] = [row];
         }
       } else {
@@ -2152,17 +2173,24 @@ app.post('/api/admin/tipos-solicitud/preview-pdf', autenticar, esAdmin, async (r
       cargo: 'Director de Tecnologías de la Información y Comunicación'
     } : null;
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="PREVIEW_${codigo.toUpperCase()}.pdf"`);
-
     const doc = new PDFDocument({ margin: 50 });
-    doc.pipe(res);
+    const chunks = [];
+
+    doc.on('data', chunk => chunks.push(chunk));
+    doc.on('end', () => {
+      const pdfBuffer = Buffer.concat(chunks);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="PREVIEW_${codigo.toUpperCase()}.pdf"`);
+      res.send(pdfBuffer);
+    });
 
     generarReportePDFInternal(doc, mockSolicitud, mockAprobaciones, mockDirectorSigner);
     doc.end();
   } catch (error) {
     console.error('Error al generar la previsualización del PDF:', error);
-    res.status(500).json({ error: 'Error al generar la previsualización del PDF: ' + error.message });
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Error al generar la previsualización del PDF: ' + error.message });
+    }
   }
 });
 

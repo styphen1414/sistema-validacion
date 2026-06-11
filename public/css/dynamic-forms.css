@@ -648,3 +648,28 @@
   background-color: var(--bg-primary) !important;
   color: var(--text-primary) !important;
 }
+
+/* Estilos para textos informativos ocultos en PDF */
+.info-no-pdf-paragraph {
+  background-color: var(--bg-input-secondary);
+  border-left: 4px solid var(--celeste-color);
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-style: normal;
+  font-size: 0.85rem;
+  margin-bottom: 1.2rem;
+  display: block;
+}
+
+.info-no-pdf-detail {
+  background-color: var(--bg-input-secondary);
+  border-left: 4px solid var(--text-secondary);
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-style: italic;
+  font-size: 0.8rem;
+  margin-bottom: 1rem;
+  display: block;
+}
