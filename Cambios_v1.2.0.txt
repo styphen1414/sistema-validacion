@@ -57,6 +57,12 @@ CAMBIOS REALIZADOS
        historicas ingresadas por los validadores en el modal.
      * Sanitizacion de los modulos de administracion (nombres de usuarios, 
        cargos, correos, codigos y nombres de plantillas de formularios).
+   - Correccion de error al guardar plantillas de formularios modificadas:
+     * Al cambiar de tipo de campo en el constructor de plantillas,
+       se eliminan y limpian de forma interactiva las columnas, filas y
+       atributos 'required' huerfanos. Esto evita que campos requeridos
+       que quedan ocultos en el DOM bloqueen de manera silenciosa el envio
+       del formulario de plantilla.
 
 3. FRONTEND (public/index.html):
    - Contenedor de controles de paginacion ('#paginacion-container') y

@@ -2680,20 +2680,43 @@ function actualizarFilaCampoRequerido(select) {
   const selectOptsBuilder = row.querySelector('.select-options-builder');
   const fixedGridRowLabelBuilder = row.querySelector('.fixed-grid-row-label-builder');
   
-  colsBuilder.style.display = 'none';
-  if (rowsBuilder) rowsBuilder.style.display = 'none';
-  if (firmanteBuilder) firmanteBuilder.style.display = 'none';
-  if (selectOptsBuilder) selectOptsBuilder.style.display = 'none';
-  if (fixedGridRowLabelBuilder) fixedGridRowLabelBuilder.style.display = 'none';
+  // Limpiar campos para evitar bloquear el submit por validaciones requeridas ocultas
+  const limpiarCols = () => { if (colsBuilder) colsBuilder.querySelector('.grid-columns-list').innerHTML = ''; };
+  const limpiarRows = () => { if (rowsBuilder) rowsBuilder.querySelector('.grid-rows-list').innerHTML = ''; };
+  const limpiarRowLabel = () => { if (fixedGridRowLabelBuilder) { const inp = fixedGridRowLabelBuilder.querySelector('.campo-row-label'); if (inp) inp.value = ''; } };
+  const limpiarFirmante = () => { if (firmanteBuilder) { firmanteBuilder.querySelectorAll('input[type="checkbox"]').forEach(chk => chk.checked = false); } };
+  const limpiarSelectOpts = () => { if (selectOptsBuilder) { const inp = selectOptsBuilder.querySelector('.campo-options'); if (inp) inp.value = ''; } };
 
   if (['title', 'subtitle', 'paragraph', 'info_no_pdf'].includes(select.value)) {
     reqLabel.style.display = 'none';
     reqCheckbox.checked = false;
+    
+    colsBuilder.style.display = 'none';
+    if (rowsBuilder) rowsBuilder.style.display = 'none';
+    if (firmanteBuilder) firmanteBuilder.style.display = 'none';
+    if (selectOptsBuilder) selectOptsBuilder.style.display = 'none';
+    if (fixedGridRowLabelBuilder) fixedGridRowLabelBuilder.style.display = 'none';
+
+    limpiarCols();
+    limpiarRows();
+    limpiarRowLabel();
+    limpiarFirmante();
+    limpiarSelectOpts();
   } else if (select.value === 'grid') {
     reqLabel.style.display = 'none';
     reqCheckbox.checked = false;
-    colsBuilder.style.display = 'flex';
     
+    colsBuilder.style.display = 'flex';
+    if (rowsBuilder) rowsBuilder.style.display = 'none';
+    if (firmanteBuilder) firmanteBuilder.style.display = 'none';
+    if (selectOptsBuilder) selectOptsBuilder.style.display = 'none';
+    if (fixedGridRowLabelBuilder) fixedGridRowLabelBuilder.style.display = 'none';
+
+    limpiarRows();
+    limpiarRowLabel();
+    limpiarFirmante();
+    limpiarSelectOpts();
+
     // Si la lista de columnas está vacía, agregar una por defecto
     const list = colsBuilder.querySelector('.grid-columns-list');
     if (list.children.length === 0) {
@@ -2702,10 +2725,16 @@ function actualizarFilaCampoRequerido(select) {
   } else if (select.value === 'fixed_grid' || select.value === 'fixed_grid_dynamic_cols' || select.value === 'fixed_grid_fixed_cols') {
     reqLabel.style.display = 'none';
     reqCheckbox.checked = false;
+    
     colsBuilder.style.display = 'flex';
     if (rowsBuilder) rowsBuilder.style.display = 'flex';
     if (fixedGridRowLabelBuilder) fixedGridRowLabelBuilder.style.display = 'flex';
-    
+    if (firmanteBuilder) firmanteBuilder.style.display = 'none';
+    if (selectOptsBuilder) selectOptsBuilder.style.display = 'none';
+
+    limpiarFirmante();
+    limpiarSelectOpts();
+
     // Si la lista de columnas está vacía, agregar una por defecto
     const colList = colsBuilder.querySelector('.grid-columns-list');
     if (colList.children.length === 0) {
@@ -2720,12 +2749,44 @@ function actualizarFilaCampoRequerido(select) {
     }
   } else if (select.value === 'firmante' || select.value === 'firmante_seccion' || select.value === 'firmante_list') {
     reqLabel.style.display = 'flex';
+    
+    colsBuilder.style.display = 'none';
+    if (rowsBuilder) rowsBuilder.style.display = 'none';
     if (firmanteBuilder) firmanteBuilder.style.display = 'flex';
+    if (selectOptsBuilder) selectOptsBuilder.style.display = 'none';
+    if (fixedGridRowLabelBuilder) fixedGridRowLabelBuilder.style.display = 'none';
+
+    limpiarCols();
+    limpiarRows();
+    limpiarRowLabel();
+    limpiarSelectOpts();
   } else if (select.value === 'select') {
     reqLabel.style.display = 'flex';
+    
+    colsBuilder.style.display = 'none';
+    if (rowsBuilder) rowsBuilder.style.display = 'none';
+    if (firmanteBuilder) firmanteBuilder.style.display = 'none';
     if (selectOptsBuilder) selectOptsBuilder.style.display = 'flex';
+    if (fixedGridRowLabelBuilder) fixedGridRowLabelBuilder.style.display = 'none';
+
+    limpiarCols();
+    limpiarRows();
+    limpiarRowLabel();
+    limpiarFirmante();
   } else {
     reqLabel.style.display = 'flex';
+    
+    colsBuilder.style.display = 'none';
+    if (rowsBuilder) rowsBuilder.style.display = 'none';
+    if (firmanteBuilder) firmanteBuilder.style.display = 'none';
+    if (selectOptsBuilder) selectOptsBuilder.style.display = 'none';
+    if (fixedGridRowLabelBuilder) fixedGridRowLabelBuilder.style.display = 'none';
+
+    limpiarCols();
+    limpiarRows();
+    limpiarRowLabel();
+    limpiarFirmante();
+    limpiarSelectOpts();
   }
 }
 
