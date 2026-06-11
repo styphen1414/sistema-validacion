@@ -1,0 +1,61 @@
+========================================================================
+GUÍA PARA IMPORTAR LOS FORMULARIOS REALES (SVT) EN OTRA PC
+========================================================================
+
+Este documento explica las opciones disponibles para cargar los 12 formularios 
+con todo su formato interno (grillas, columnas, campos obligatorios, etc.) 
+en tu nuevo entorno de desarrollo o producción.
+
+------------------------------------------------------------------------
+OPCIÓN 1: ACTUALIZACIÓN AUTOMÁTICA VÍA GITHUB (RECOMENDADO)
+------------------------------------------------------------------------
+Dado que ya hemos subido todos los cambios locales y la base de datos de 
+semillas actualizada al repositorio de GitHub:
+
+1. En la nueva PC, abre una terminal en la carpeta del proyecto y ejecuta:
+   git pull origin main
+
+2. Asegúrate de tener la base de datos de destino creada en PostgreSQL.
+
+3. Ejecuta el script de inicialización 'init_db.sql' que ahora contiene los
+   12 formularios reales configurados por defecto:
+   psql -U tu_usuario -d tu_base_de_datos -f init_db.sql
+
+   *Nota: Si estás usando pgAdmin o DBeaver, puedes simplemente abrir el
+          archivo 'init_db.sql' en el editor SQL y ejecutarlo por completo.
+
+------------------------------------------------------------------------
+OPCIÓN 2: IMPORTACIÓN DIRECTA DE ARCHIVO SQL (SIN VOLVER A INSTALAR TODO)
+------------------------------------------------------------------------
+Si ya tienes la aplicación corriendo en la otra PC y solo deseas actualizar 
+los formularios sin reiniciar los usuarios o configuraciones:
+
+1. Localiza el archivo de volcado generado en esta PC:
+   /scratch/importar_formularios.sql
+
+2. Copia este archivo a la otra PC (mediante USB, correo, etc.).
+
+3. Conéctate a la base de datos de la otra PC y ejecuta el archivo:
+   psql -U tu_usuario -d tu_base_de_datos -f importar_formularios.sql
+
+   *Nota: Este script limpia la tabla 'tipos_solicitud' e inserta los 12
+          formularios reales con su formato interno exacto (JSONB).
+
+------------------------------------------------------------------------
+RESUMEN DE FORMULARIOS EXPORTADOS E INCLUIDOS EN EL SQL:
+------------------------------------------------------------------------
+- [CSE] Creación de Usuarios y Contraseñas (Externos)
+- [CSI] Creación de Usuarios y Contraseñas (Internos y Adscritos)
+- [RIE] Acceso a Servicios de Red Interna (Usuario Externo MSP)
+- [RIEC] Acceso a Servicios de Red Interna (Usuario Externo Consolidated)
+- [RII] Acceso a Servicios de Red Interna (Usuario Interno MSP)
+- [BDDIC] Acceso a Base de Datos (Internos/Adscritos Consolidated)
+- [T_BDD_APP] Migración/Transmisión de Datos y Bases de Datos/APP
+- [RIIC] Acceso a Servicios de Red Interna (Usuario Interno Consolidated)
+- [VPN_SS] Acceso - VPN Sitio a Sitio
+- [BDDI] Acceso a Base de Datos (Internos/Adscritos)
+- [BDDEC] Acceso a Base de Datos (Externos Consolidated)
+- [BDDE] Acceso a Base de Datos (Internos/Adscritos Copia)
+
+Guía creada el: 11 de junio de 2026.
+========================================================================
