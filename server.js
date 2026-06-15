@@ -139,7 +139,7 @@ async function enviarCorreoProgresoSolicitud(solicitudId, tipoEvento, area, deta
       SELECT s.id, s.datos, s.fecha_creacion, s.fecha_actualizacion, s.estado,
              u.nombre AS solicitante_nombre, u.correo AS solicitante_correo,
              ts.nombre AS tipo_nombre, ts.codigo AS tipo_codigo,
-             ts.mail_progreso
+             ts.mail_progreso, ts.mail_cc
       FROM solicitudes s
       JOIN usuarios u ON s.solicitante_id = u.id
       JOIN tipos_solicitud ts ON s.tipo_solicitud_id = ts.id
@@ -160,6 +160,41 @@ async function enviarCorreoProgresoSolicitud(solicitudId, tipoEvento, area, deta
       console.log(`El solicitante de la solicitud ${row.tipo_codigo}-${row.id} no tiene un correo electrónico válido registrado.`);
       return;
     }
+
+    // Obtener los correos electrónicos de los técnicos asignados a la solicitud
+    const tQuery = `
+      SELECT DISTINCT u.correo 
+      FROM aprobaciones a
+      JOIN usuarios u ON a.tecnico_id = u.id
+      WHERE a.solicitud_id = $1 AND a.tecnico_id IS NOT NULL AND u.correo IS NOT NULL AND u.correo != ''
+    `;
+    const tRes = await db.query(tQuery, [solicitudId]);
+
+    const ccEmails = [];
+    const seenEmails = new Set();
+    const mainRecipient = row.solicitante_correo.trim().toLowerCase();
+
+    // 1. Agregar correos estáticos configurados en la plantilla
+    if (row.mail_cc && row.mail_cc.trim() !== '') {
+      row.mail_cc.split(',').forEach(email => {
+        const cleaned = email.trim();
+        const lower = cleaned.toLowerCase();
+        if (cleaned && lower !== mainRecipient && !seenEmails.has(lower)) {
+          seenEmails.add(lower);
+          ccEmails.push(cleaned);
+        }
+      });
+    }
+
+    // 2. Agregar correos de los técnicos asignados
+    tRes.rows.forEach(tRow => {
+      const cleaned = tRow.correo.trim();
+      const lower = cleaned.toLowerCase();
+      if (cleaned && lower !== mainRecipient && !seenEmails.has(lower)) {
+        seenEmails.add(lower);
+        ccEmails.push(cleaned);
+      }
+    });
 
     const areaNombre = NOMBRES_AREAS[area] || area;
     const fechaStr = new Date(row.fecha_actualizacion).toLocaleDateString('es-ES') + ' ' + new Date(row.fecha_actualizacion).toLocaleTimeString('es-ES');
@@ -243,7 +278,11 @@ async function enviarCorreoProgresoSolicitud(solicitudId, tipoEvento, area, deta
              </div>`
     };
 
-    console.log(`[Progreso] Enviando correo de progreso (${tipoEvento}) para solicitud ${row.tipo_codigo}-${row.id} a ${row.solicitante_correo}...`);
+    if (ccEmails.length > 0) {
+      mailOptions.cc = ccEmails;
+    }
+
+    console.log(`[Progreso] Enviando correo de progreso (${tipoEvento}) para solicitud ${row.tipo_codigo}-${row.id} a ${row.solicitante_correo}${ccEmails.length > 0 ? ' con CC a ' + ccEmails.join(', ') : ''}...`);
     const info = await mailTransporter.sendMail(mailOptions);
     console.log('[Progreso] Mensaje de progreso enviado con ID: %s', info.messageId);
   } catch (error) {
