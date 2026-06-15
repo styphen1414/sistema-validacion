@@ -1456,6 +1456,8 @@ async function enviarFormulario(enviar) {
     const tipo = tiposSolicitud.find(t => t.id === parseInt(tipoSolicitudId, 10));
     if (enviar && tipo) {
       let errorMsg = null;
+      const firmantesRegistrados = new Set();
+      const cedulasRegistradas = new Set();
       
       for (const campo of tipo.campos) {
         if (['title', 'subtitle', 'paragraph'].includes(campo.type)) continue;
@@ -1513,7 +1515,6 @@ async function enviarFormulario(enviar) {
           }
         }
         
-        // 2. Validar límites de longitud (100 para text, 500 para textarea)
         if (campo.type === 'text' && valor) {
           if (String(valor).length > 100) {
             errorMsg = `El campo "${campo.label}" no debe superar los 100 caracteres.`;
@@ -1523,6 +1524,13 @@ async function enviarFormulario(enviar) {
         if (campo.type === 'textarea' && valor) {
           if (String(valor).length > 500) {
             errorMsg = `El campo "${campo.label}" no debe superar los 500 caracteres (máximo un párrafo).`;
+            break;
+          }
+        }
+        if ((campo.type === 'text' || campo.type === 'textarea') && valor) {
+          const safeTextRegex = /^[a-zA-Z0-9áéíóúüñÁÉÍÓÚÜÑ\s.,():;\-_!?/@]*$/;
+          if (!safeTextRegex.test(String(valor))) {
+            errorMsg = `El campo "${campo.label}" contiene caracteres no permitidos. Solo se admiten letras, números, espacios y signos básicos: .,():;-_!?/@`;
             break;
           }
         }
@@ -1536,6 +1544,70 @@ async function enviarFormulario(enviar) {
           if (errorMsg) break;
         }
         
+        // Validar nombres y duplicación para firmantes simples
+        if ((campo.type === 'firmante' || campo.type === 'firmante_seccion') && valor) {
+          let parsed = { nombre: '', cedula: '', cargo: '' };
+          try {
+            parsed = JSON.parse(valor || '{}');
+          } catch(e) {}
+          if (parsed.nombre && parsed.nombre.trim() !== '') {
+            const trimmedNombre = parsed.nombre.trim();
+            const firmanteNameRegex = /^[a-zA-Z\s]*$/;
+            if (!firmanteNameRegex.test(trimmedNombre)) {
+              errorMsg = `El nombre de "${campo.label}" solo puede contener letras y espacios (sin eñes, tildes ni caracteres especiales).`;
+              break;
+            }
+            const nombreNormalizado = trimmedNombre.toLowerCase().replace(/\s+/g, ' ');
+            if (firmantesRegistrados.has(nombreNormalizado)) {
+              errorMsg = `El firmante adicional "${trimmedNombre}" está duplicado en la solicitud.`;
+              break;
+            }
+            firmantesRegistrados.add(nombreNormalizado);
+
+            if (parsed.cedula && parsed.cedula.trim() !== '') {
+              const cedulaNormalizada = parsed.cedula.trim();
+              if (cedulasRegistradas.has(cedulaNormalizada)) {
+                errorMsg = `El firmante adicional con cédula "${cedulaNormalizada}" está duplicado en la solicitud.`;
+                break;
+              }
+              cedulasRegistradas.add(cedulaNormalizada);
+            }
+          }
+        }
+
+        if (campo.type === 'firmante_list' && Array.isArray(valor)) {
+          for (const item of valor) {
+            let parsed = { nombre: '', cedula: '', cargo: '' };
+            try {
+              parsed = JSON.parse(item || '{}');
+            } catch(e) {}
+            if (parsed.nombre && parsed.nombre.trim() !== '') {
+              const trimmedNombre = parsed.nombre.trim();
+              const firmanteNameRegex = /^[a-zA-Z\s]*$/;
+              if (!firmanteNameRegex.test(trimmedNombre)) {
+                errorMsg = `El nombre de uno de los firmantes en "${campo.label}" solo puede contener letras y espacios (sin eñes, tildes ni caracteres especiales).`;
+                break;
+              }
+              const nombreNormalizado = trimmedNombre.toLowerCase().replace(/\s+/g, ' ');
+              if (firmantesRegistrados.has(nombreNormalizado)) {
+                errorMsg = `El firmante adicional "${trimmedNombre}" está duplicado en la solicitud.`;
+                break;
+              }
+              firmantesRegistrados.add(nombreNormalizado);
+
+              if (parsed.cedula && parsed.cedula.trim() !== '') {
+                const cedulaNormalizada = parsed.cedula.trim();
+                if (cedulasRegistradas.has(cedulaNormalizada)) {
+                  errorMsg = `El firmante adicional con cédula "${cedulaNormalizada}" está duplicado en la solicitud.`;
+                  break;
+                }
+                cedulasRegistradas.add(cedulaNormalizada);
+              }
+            }
+          }
+          if (errorMsg) break;
+        }
+
         // 3. Validar Cédulas/Identificaciones de 10 dígitos (solo números)
         const idRegex = /^\d{10}$/;
         if ((campo.type === 'firmante' || campo.type === 'firmante_seccion') && campo.recoger_cedula && valor) {
@@ -1672,6 +1744,13 @@ async function enviarFormulario(enviar) {
                   errorMsg = `El valor en la columna "${colName}" de la tabla "${campo.label}" no debe superar los 500 caracteres.`;
                   break;
                 }
+                if ((colType === 'text' || colType === 'textarea') && cellValTrim) {
+                  const safeTextRegex = /^[a-zA-Z0-9áéíóúüñÁÉÍÓÚÜÑ\s.,():;\-_!?/@]*$/;
+                  if (!safeTextRegex.test(cellValTrim)) {
+                    errorMsg = `El valor en la columna "${colName}" de la tabla "${campo.label}" contiene caracteres no permitidos. Solo se admiten letras, números, espacios y signos básicos: .,():;-_!?/@`;
+                    break;
+                  }
+                }
                 if (colType === 'identificacion' && !idRegex.test(cellValTrim)) {
                   errorMsg = `La identificación en la columna "${colName}" de la tabla "${campo.label}" debe contener exactamente 10 dígitos numéricos.`;
                   break;
@@ -1720,15 +1799,37 @@ async function enviarFormulario(enviar) {
                     }
                   }
                 }
-                if ((colType === 'firmante' || colType === 'firmante_seccion') && col.recoger_cedula) {
+                if (colType === 'firmante' || colType === 'firmante_seccion') {
                   let parsed = { nombre: '', cedula: '', cargo: '' };
                   try {
                     parsed = JSON.parse(cellVal || '{}');
                   } catch(e) {}
-                  if (parsed.cedula && parsed.cedula.trim() !== '') {
-                    if (!idRegex.test(parsed.cedula.trim())) {
-                      errorMsg = `La cédula en la columna "${colName}" de la tabla "${campo.label}" debe tener exactamente 10 dígitos numéricos.`;
+                  if (parsed.nombre && parsed.nombre.trim() !== '') {
+                    const trimmedNombre = parsed.nombre.trim();
+                    const firmanteNameRegex = /^[a-zA-Z\s]*$/;
+                    if (!firmanteNameRegex.test(trimmedNombre)) {
+                      errorMsg = `El nombre del firmante en la columna "${colName}" de la tabla "${campo.label}" solo puede contener letras y espacios (sin eñes, tildes ni caracteres especiales).`;
                       break;
+                    }
+                    const nombreNormalizado = trimmedNombre.toLowerCase().replace(/\s+/g, ' ');
+                    if (firmantesRegistrados.has(nombreNormalizado)) {
+                      errorMsg = `El firmante adicional "${trimmedNombre}" está duplicado en la solicitud.`;
+                      break;
+                    }
+                    firmantesRegistrados.add(nombreNormalizado);
+
+                    if (parsed.cedula && parsed.cedula.trim() !== '') {
+                      const cedulaNormalizada = parsed.cedula.trim();
+                      if (cedulasRegistradas.has(cedulaNormalizada)) {
+                        errorMsg = `El firmante adicional con cédula "${cedulaNormalizada}" está duplicado en la solicitud.`;
+                        break;
+                      }
+                      cedulasRegistradas.add(cedulaNormalizada);
+
+                      if (!idRegex.test(cedulaNormalizada)) {
+                        errorMsg = `La cédula del firmante en la columna "${colName}" de la tabla "${campo.label}" debe tener exactamente 10 dígitos numéricos.`;
+                        break;
+                      }
                     }
                   }
                 }

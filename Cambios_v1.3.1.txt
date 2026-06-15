@@ -1,0 +1,39 @@
+======================================================================
+SISTEMA DE VALIDACION TECNICA (SVT) - NOTAS DE CAMBIOS VERSION 1.3.1
+======================================================================
+
+Fecha: 15 de Junio, 2026
+Autor: Antigravity AI & David Paredes
+Version: 1.3.1 (Restricciones de Texto Seguro y Control de Firmantes)
+
+----------------------------------------------------------------------
+DESCRIPCION GENERAL
+----------------------------------------------------------------------
+Esta versión añade controles de seguridad y consistencia de datos en el llenado de solicitudes:
+1. Restricción en campos y columnas de texto para prevenir inyección de código.
+2. Restricción en nombres de firmantes para excluir caracteres especiales, números, tildes eñes.
+3. Detección y bloqueo de firmantes adicionales duplicados por nombre o cédula.
+
+----------------------------------------------------------------------
+CAMBIOS REALIZADOS
+----------------------------------------------------------------------
+
+1. RESTRICCIÓN DE TEXTO SEGURO (text y textarea):
+   - Validación al enviar (enviarFormulario) que restringe los caracteres permitidos a letras, números, espacios y signos básicos: `. , : ; - _ ( ) ? ! / @`.
+   - Se aplica tanto a campos independientes de tipo 'text' y 'textarea' como a celdas de texto en tablas dinámicas/fijas.
+   - Bloquea caracteres peligrosos como `< > " ' \ { } [ ]` para evitar inserciones de scripts o inyección de código.
+
+2. RESTRICCIÓN DE NOMBRES EN FIRMANTES:
+   - Validación al enviar que restringe los nombres de firmantes simples, listas de firmantes y columnas de firmantes en grillas a contener estrictamente letras (A-Z) y espacios (`/^[a-zA-Z\s]*$/`).
+   - Se prohíbe el uso de tildes (á, é, í, ó, ú), números, caracteres especiales y la letra ñ / Ñ (tanto en minúscula como en mayúscula).
+
+3. DETECCIÓN DE FIRMANTES ADICIONALES DUPLICADOS:
+   - Implementación de un mecanismo de tracking dinámico mediante conjuntos (Sets) de nombres y cédulas durante el proceso de validación.
+   - Si se detecta un firmante repetido por nombre normalizado (limpiando espacios repetidos y comparando en minúsculas) o por número de cédula, se alerta al usuario y se interrumpe el envío.
+
+----------------------------------------------------------------------
+COMO DESPLEGAR / ACTUALIZAR
+----------------------------------------------------------------------
+1. Descargar los cambios desde la rama correspondiente o aplicar la versión '1.3.1'.
+2. Ejecutar 'npm run dev' para iniciar el servidor de desarrollo.
+======================================================================
