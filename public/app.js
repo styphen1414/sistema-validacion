@@ -462,6 +462,70 @@ function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
             const val = rowData ? rowData[colName] : '';
             input.checked = (val === 'X' || val === true || val === 'true');
             td.appendChild(input);
+          } else if (colType === 'date_range') {
+            const compDiv = document.createElement('div');
+            compDiv.className = 'grid-cell-date-range-composite';
+
+            const cellHiddenInput = document.createElement('input');
+            cellHiddenInput.type = 'hidden';
+            cellHiddenInput.className = 'grid-cell-input';
+            cellHiddenInput.dataset.column = colName;
+            if (isColRequired) cellHiddenInput.required = true;
+            compDiv.appendChild(cellHiddenInput);
+
+            const val = rowData ? (rowData[colName] || '') : '';
+            let parsed = { desde: '', hasta: '' };
+            if (val) {
+              try {
+                parsed = typeof val === 'object' ? val : JSON.parse(val);
+              } catch (e) {}
+            }
+
+            const updateCell = () => {
+              const data = {
+                desde: desdeInp.value.trim(),
+                hasta: hastaInp.value.trim()
+              };
+              cellHiddenInput.value = (data.desde || data.hasta) ? JSON.stringify(data) : '';
+            };
+
+            const desdeInp = document.createElement('input');
+            desdeInp.type = 'date';
+            desdeInp.value = parsed.desde || '';
+            if (isColRequired) desdeInp.required = true;
+            desdeInp.onchange = () => {
+              if (desdeInp.value) {
+                hastaInp.min = desdeInp.value;
+              } else {
+                hastaInp.removeAttribute('min');
+              }
+              updateCell();
+            };
+            compDiv.appendChild(desdeInp);
+
+            const hastaInp = document.createElement('input');
+            hastaInp.type = 'date';
+            hastaInp.value = parsed.hasta || '';
+            if (isColRequired) hastaInp.required = true;
+            hastaInp.onchange = () => {
+              if (hastaInp.value) {
+                desdeInp.max = hastaInp.value;
+              } else {
+                desdeInp.removeAttribute('max');
+              }
+              updateCell();
+            };
+            compDiv.appendChild(hastaInp);
+
+            if (desdeInp.value) {
+              hastaInp.min = desdeInp.value;
+            }
+            if (hastaInp.value) {
+              desdeInp.max = hastaInp.value;
+            }
+
+            updateCell();
+            td.appendChild(compDiv);
           } else if (isColFirmanteComposite) {
             const compDiv = document.createElement('div');
             compDiv.className = 'grid-cell-firmante-composite';
@@ -577,6 +641,16 @@ function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
               input.oninput = (e) => {
                 e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10);
               };
+            } else if (colType === 'ip') {
+              input.type = 'text';
+              input.dataset.type = 'ip';
+              input.placeholder = '192.168.1.10';
+            } else if (colType === 'mac') {
+              input.type = 'text';
+              input.dataset.type = 'mac';
+              input.placeholder = 'AA:BB:CC:DD:EE:FF';
+            } else if (colType === 'time') {
+              input.type = 'time';
             } else {
               input.type = 'text';
               input.placeholder = `Ingresa ${colName.toLowerCase()}`;
@@ -840,7 +914,85 @@ function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
     let inputElement;
     const valor = (valoresExistentes && valoresExistentes[campo.name] !== undefined && valoresExistentes[campo.name] !== null) ? valoresExistentes[campo.name] : '';
 
-    if ((campo.type === 'firmante' || campo.type === 'firmante_seccion') && (campo.recoger_cedula || campo.recoger_cargo)) {
+    if (campo.type === 'date_range') {
+      const container = document.createElement('div');
+      container.className = 'date-range-composite-container';
+
+      const mainInput = document.createElement('input');
+      mainInput.type = 'hidden';
+      mainInput.name = campo.name;
+      mainInput.id = `campo-${campo.name}`;
+      if (campo.required) mainInput.required = true;
+      container.appendChild(mainInput);
+
+      let parsed = { desde: '', hasta: '' };
+      if (valor) {
+        try {
+          parsed = typeof valor === 'object' ? valor : JSON.parse(valor);
+        } catch (e) {}
+      }
+
+      const updateValue = () => {
+        const data = {
+          desde: desdeInput.value.trim(),
+          hasta: hastaInput.value.trim()
+        };
+        mainInput.value = (data.desde || data.hasta) ? JSON.stringify(data) : '';
+      };
+
+      const desdeGroup = document.createElement('div');
+      const desdeLabel = document.createElement('label');
+      desdeLabel.textContent = 'Desde';
+      const desdeInput = document.createElement('input');
+      desdeInput.type = 'date';
+      desdeInput.value = parsed.desde || '';
+      if (campo.required) desdeInput.required = true;
+
+      const hastaGroup = document.createElement('div');
+      const hastaLabel = document.createElement('label');
+      hastaLabel.textContent = 'Hasta';
+      const hastaInput = document.createElement('input');
+      hastaInput.type = 'date';
+      hastaInput.value = parsed.hasta || '';
+      if (campo.required) hastaInput.required = true;
+
+      // Restricciones iniciales e interactivas
+      if (desdeInput.value) {
+        hastaInput.min = desdeInput.value;
+      }
+      if (hastaInput.value) {
+        desdeInput.max = hastaInput.value;
+      }
+
+      desdeInput.onchange = () => {
+        if (desdeInput.value) {
+          hastaInput.min = desdeInput.value;
+        } else {
+          hastaInput.removeAttribute('min');
+        }
+        updateValue();
+      };
+
+      hastaInput.onchange = () => {
+        if (hastaInput.value) {
+          desdeInput.max = hastaInput.value;
+        } else {
+          desdeInput.removeAttribute('max');
+        }
+        updateValue();
+      };
+
+      desdeGroup.appendChild(desdeLabel);
+      desdeGroup.appendChild(desdeInput);
+      container.appendChild(desdeGroup);
+
+      hastaGroup.appendChild(hastaLabel);
+      hastaGroup.appendChild(hastaInput);
+      container.appendChild(hastaGroup);
+
+      updateValue();
+      formGroup.appendChild(container);
+    } else if ((campo.type === 'firmante' || campo.type === 'firmante_seccion') && (campo.recoger_cedula || campo.recoger_cargo)) {
       const container = document.createElement('div');
       container.className = 'firmante-composite-container';
 
@@ -946,6 +1098,19 @@ function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
         inputElement = document.createElement('input');
         inputElement.type = 'number';
         inputElement.placeholder = `Ingresa ${campo.label.toLowerCase()}`;
+      } else if (campo.type === 'ip') {
+        inputElement = document.createElement('input');
+        inputElement.type = 'text';
+        inputElement.placeholder = 'Ej: 192.168.1.10';
+        inputElement.dataset.type = 'ip';
+      } else if (campo.type === 'mac') {
+        inputElement = document.createElement('input');
+        inputElement.type = 'text';
+        inputElement.placeholder = 'Ej: AA:BB:CC:DD:EE:FF';
+        inputElement.dataset.type = 'mac';
+      } else if (campo.type === 'time') {
+        inputElement = document.createElement('input');
+        inputElement.type = 'time';
       } else {
         inputElement = document.createElement('input');
         inputElement.type = 'text';
@@ -1251,6 +1416,7 @@ async function enviarFormulario(enviar) {
       const tipo = tiposSolicitud.find(t => t.id === parseInt(tipoSolicitudId, 10));
       const campoDef = tipo ? tipo.campos.find(c => c.name === gridName) : null;
       const customRowLabel = campoDef ? campoDef.row_label : null;
+      const isFixedGrid = campoDef ? (campoDef.type === 'fixed_grid' || campoDef.type === 'fixed_grid_dynamic_cols' || campoDef.type === 'fixed_grid_fixed_cols') : false;
 
       rows.forEach(row => {
         const rowData = {};
@@ -1278,7 +1444,7 @@ async function enviarFormulario(enviar) {
           if (val !== '') hasAnyValue = true;
         });
         // Para grid dinámico, solo guardar si tiene valores. Para grid fijo, siempre guardamos la fila.
-        if (labelInput || hasAnyValue) {
+        if (labelInput || isFixedGrid || hasAnyValue) {
           gridData.push(rowData);
         }
       });
@@ -1298,7 +1464,16 @@ async function enviarFormulario(enviar) {
         
         // 1. Validar campos obligatorios planos
         if (campo.required) {
-          if (campo.type === 'firmante' || campo.type === 'firmante_seccion') {
+          if (campo.type === 'date_range') {
+            let parsed = { desde: '', hasta: '' };
+            try {
+              parsed = typeof valor === 'object' ? valor : JSON.parse(valor || '{}');
+            } catch(e) {}
+            if (!parsed.desde || parsed.desde.trim() === '' || !parsed.hasta || parsed.hasta.trim() === '') {
+              errorMsg = `El rango de fechas de "${campo.label}" es obligatorio (requiere fecha Desde y Hasta).`;
+              break;
+            }
+          } else if (campo.type === 'firmante' || campo.type === 'firmante_seccion') {
             let parsed = { nombre: '', cedula: '', cargo: '' };
             try {
               parsed = JSON.parse(valor || '{}');
@@ -1320,7 +1495,7 @@ async function enviarFormulario(enviar) {
               errorMsg = `El campo "${campo.label}" es obligatorio y requiere al menos una entrada.`;
               break;
             }
-          } else if (campo.type === 'grid' || campo.type === 'fixed_grid') {
+          } else if (['grid', 'fixed_grid', 'fixed_grid_dynamic_cols', 'fixed_grid_fixed_cols'].includes(campo.type)) {
             if (!Array.isArray(valor) || valor.length === 0) {
               errorMsg = `La tabla "${campo.label}" es obligatoria y requiere al menos una fila.`;
               break;
@@ -1391,11 +1566,65 @@ async function enviarFormulario(enviar) {
           }
           if (errorMsg) break;
         }
+
+        // Validar lógica de fecha en date_range
+        if (campo.type === 'date_range' && valor) {
+          let parsed = { desde: '', hasta: '' };
+          try {
+            parsed = typeof valor === 'object' ? valor : JSON.parse(valor);
+          } catch(e) {}
+          if ((parsed.desde && !parsed.hasta) || (!parsed.desde && parsed.hasta)) {
+            errorMsg = `En el campo "${campo.label}", debe ingresar tanto la fecha "Desde" como la fecha "Hasta".`;
+            break;
+          }
+          if (parsed.desde && parsed.hasta) {
+            if (parsed.hasta < parsed.desde) {
+              errorMsg = `En el campo "${campo.label}", la fecha "Hasta" no puede ser anterior a la fecha "Desde".`;
+              break;
+            }
+          }
+        }
+
+        // 3.5 Validar formatos específicos (IP, MAC, Hora) para campos simples
+        if (valor !== undefined && valor !== null && String(valor).trim() !== '') {
+          const valorTrim = String(valor).trim();
+          if (campo.type === 'ip') {
+            const ipRegex = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
+            if (!ipRegex.test(valorTrim)) {
+              errorMsg = `El campo "${campo.label}" debe ser una dirección IP válida (ej. 192.168.1.10).`;
+              break;
+            }
+          }
+          if (campo.type === 'mac') {
+            const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$|^([0-9A-Fa-f]{4}\.){2}[0-9A-Fa-f]{4}$/;
+            if (!macRegex.test(valorTrim)) {
+              errorMsg = `El campo "${campo.label}" debe ser una dirección MAC válida (ej. AA:BB:CC:DD:EE:FF).`;
+              break;
+            }
+          }
+          if (campo.type === 'time') {
+            const timeRegex = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
+            if (!timeRegex.test(valorTrim)) {
+              errorMsg = `El campo "${campo.label}" debe ser una hora válida en formato de 24 horas (HH:MM).`;
+              break;
+            }
+          }
+        }
         
-        // 4. Validar filas de la tabla dinámica (grid / fixed_grid)
-        if ((campo.type === 'grid' || campo.type === 'fixed_grid') && Array.isArray(valor)) {
+        // 4. Validar filas de la tabla dinámica
+        if (['grid', 'fixed_grid', 'fixed_grid_dynamic_cols', 'fixed_grid_fixed_cols'].includes(campo.type) && Array.isArray(valor)) {
           for (const row of valor) {
-            const columns = campo.columns || [];
+            // Obtener todas las columnas (tanto las predefinidas como las dinámicas del objeto de la fila)
+            let columns = [...(campo.columns || [])];
+            if (campo.type === 'fixed_grid_dynamic_cols') {
+              const predefinedColNames = columns.map(col => typeof col === 'object' ? col.name : col);
+              const rowLabelKey = campo.row_label || 'Descripción / Fila';
+              Object.keys(row).forEach(key => {
+                if (key !== rowLabelKey && key !== 'Descripción / Fila' && !predefinedColNames.includes(key)) {
+                  columns.push({ name: key, type: 'text', required: false });
+                }
+              });
+            }
             for (const col of columns) {
               const colName = typeof col === 'object' ? col.name : col;
               const colType = typeof col === 'object' ? col.type : 'text';
@@ -1403,7 +1632,16 @@ async function enviarFormulario(enviar) {
               const cellVal = row[colName];
               
               if (isColRequired) {
-                if (colType === 'firmante' || colType === 'firmante_seccion') {
+                if (colType === 'date_range') {
+                  let parsed = { desde: '', hasta: '' };
+                  try {
+                    parsed = typeof cellVal === 'object' ? cellVal : JSON.parse(cellVal || '{}');
+                  } catch(e) {}
+                  if (!parsed.desde || parsed.desde.trim() === '' || !parsed.hasta || parsed.hasta.trim() === '') {
+                    errorMsg = `El rango de fechas de la columna "${colName}" en la tabla "${campo.label}" es obligatorio (requiere fecha Desde y Hasta).`;
+                    break;
+                  }
+                } else if (colType === 'firmante' || colType === 'firmante_seccion') {
                   let parsed = { nombre: '', cedula: '', cargo: '' };
                   try {
                     parsed = JSON.parse(cellVal || '{}');
@@ -1425,23 +1663,61 @@ async function enviarFormulario(enviar) {
               }
               
               if (cellVal !== undefined && cellVal !== null && String(cellVal).trim() !== '') {
-                if (colType === 'text' && String(cellVal).length > 100) {
+                const cellValTrim = String(cellVal).trim();
+                if (colType === 'text' && cellValTrim.length > 100) {
                   errorMsg = `El valor en la columna "${colName}" de la tabla "${campo.label}" no debe superar los 100 caracteres.`;
                   break;
                 }
-                if (colType === 'textarea' && String(cellVal).length > 500) {
+                if (colType === 'textarea' && cellValTrim.length > 500) {
                   errorMsg = `El valor en la columna "${colName}" de la tabla "${campo.label}" no debe superar los 500 caracteres.`;
                   break;
                 }
-                if (colType === 'identificacion' && !idRegex.test(String(cellVal).trim())) {
+                if (colType === 'identificacion' && !idRegex.test(cellValTrim)) {
                   errorMsg = `La identificación en la columna "${colName}" de la tabla "${campo.label}" debe contener exactamente 10 dígitos numéricos.`;
                   break;
                 }
                 if (colType === 'email') {
                   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                  if (!emailRegex.test(String(cellVal).trim())) {
+                  if (!emailRegex.test(cellValTrim)) {
                     errorMsg = `El valor "${cellVal}" en la columna "${colName}" de la tabla "${campo.label}" no es un correo electrónico válido.`;
                     break;
+                  }
+                }
+                if (colType === 'ip') {
+                  const ipRegex = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
+                  if (!ipRegex.test(cellValTrim)) {
+                    errorMsg = `El valor "${cellVal}" en la columna "${colName}" de la tabla "${campo.label}" debe ser una dirección IP válida (ej. 192.168.1.10).`;
+                    break;
+                  }
+                }
+                if (colType === 'mac') {
+                  const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$|^([0-9A-Fa-f]{4}\.){2}[0-9A-Fa-f]{4}$/;
+                  if (!macRegex.test(cellValTrim)) {
+                    errorMsg = `El valor "${cellVal}" en la columna "${colName}" de la tabla "${campo.label}" debe ser una dirección MAC válida (ej. AA:BB:CC:DD:EE:FF).`;
+                    break;
+                  }
+                }
+                if (colType === 'time') {
+                  const timeRegex = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
+                  if (!timeRegex.test(cellValTrim)) {
+                    errorMsg = `El valor "${cellVal}" en la columna "${colName}" de la tabla "${campo.label}" debe ser una hora válida en formato de 24 horas (HH:MM).`;
+                    break;
+                  }
+                }
+                if (colType === 'date_range') {
+                  let parsed = { desde: '', hasta: '' };
+                  try {
+                    parsed = typeof cellVal === 'object' ? cellVal : JSON.parse(cellVal);
+                  } catch(e) {}
+                  if ((parsed.desde && !parsed.hasta) || (!parsed.desde && parsed.hasta)) {
+                    errorMsg = `En la columna "${colName}" de la tabla "${campo.label}", debe ingresar tanto la fecha "Desde" como la fecha "Hasta".`;
+                    break;
+                  }
+                  if (parsed.desde && parsed.hasta) {
+                    if (parsed.hasta < parsed.desde) {
+                      errorMsg = `En la columna "${colName}" de la tabla "${campo.label}", la fecha "Hasta" no puede ser anterior a la fecha "Desde".`;
+                      break;
+                    }
                   }
                 }
                 if ((colType === 'firmante' || colType === 'firmante_seccion') && col.recoger_cedula) {
@@ -1645,6 +1921,23 @@ async function verDetalle(id, isRefresh = false) {
 
               if (colType === 'firmante' || colType === 'firmante_seccion') {
                 td.textContent = formatearValorFirmante(val);
+              } else if (colType === 'date_range') {
+                let formattedVal = 'N/A';
+                if (val) {
+                  try {
+                    const parsed = typeof val === 'object' ? val : JSON.parse(val);
+                    if (parsed.desde && parsed.hasta) {
+                      formattedVal = `Desde: ${parsed.desde} | Hasta: ${parsed.hasta}`;
+                    } else if (parsed.desde) {
+                      formattedVal = `Desde: ${parsed.desde}`;
+                    } else if (parsed.hasta) {
+                      formattedVal = `Hasta: ${parsed.hasta}`;
+                    }
+                  } catch (e) {
+                    formattedVal = val;
+                  }
+                }
+                td.textContent = formattedVal;
               } else {
                 td.textContent = val;
               }
@@ -1694,6 +1987,31 @@ async function verDetalle(id, isRefresh = false) {
         valItem.innerHTML = `
           <strong>${escaparHTML(campo.label)}:</strong>
           <span>${displayVal}</span>
+        `;
+        detCamposValores.appendChild(valItem);
+      } else if (campo.type === 'date_range') {
+        const valItem = document.createElement('div');
+        valItem.className = 'field-val-item';
+        
+        const rawVal = sol.datos[campo.name];
+        let valor = 'N/A';
+        if (rawVal) {
+          try {
+            const parsed = typeof rawVal === 'object' ? rawVal : JSON.parse(rawVal);
+            if (parsed.desde && parsed.hasta) {
+              valor = `Desde: ${parsed.desde} | Hasta: ${parsed.hasta}`;
+            } else if (parsed.desde) {
+              valor = `Desde: ${parsed.desde}`;
+            } else if (parsed.hasta) {
+              valor = `Hasta: ${parsed.hasta}`;
+            }
+          } catch (e) {
+            valor = rawVal;
+          }
+        }
+        valItem.innerHTML = `
+          <strong>${escaparHTML(campo.label)}:</strong>
+          <span>${escaparHTML(valor)}</span>
         `;
         detCamposValores.appendChild(valItem);
       } else {
@@ -2607,8 +2925,12 @@ function agregarFilaColumnaVisual(target, colObj = null) {
       </optgroup>
       <optgroup label="Formatos Específicos">
         <option value="date" ${colType === 'date' ? 'selected' : ''}>Fecha</option>
+        <option value="date_range" ${colType === 'date_range' ? 'selected' : ''}>Rango de Fechas (Desde - Hasta)</option>
         <option value="email" ${colType === 'email' ? 'selected' : ''}>Correo Electrónico</option>
         <option value="identificacion" ${colType === 'identificacion' ? 'selected' : ''}>Número Identificación (10 dígitos)</option>
+        <option value="ip" ${colType === 'ip' ? 'selected' : ''}>Dirección IP (IPv4)</option>
+        <option value="mac" ${colType === 'mac' ? 'selected' : ''}>Dirección MAC</option>
+        <option value="time" ${colType === 'time' ? 'selected' : ''}>Hora (HH:MM)</option>
       </optgroup>
       <optgroup label="Firmas">
         <option value="firmante" ${colType === 'firmante' ? 'selected' : ''}>Firmante (Nombre)</option>
@@ -2702,7 +3024,7 @@ function actualizarFilaCampoRequerido(select) {
     limpiarRowLabel();
     limpiarFirmante();
     limpiarSelectOpts();
-  } else if (select.value === 'grid') {
+  } else if (select.value === 'grid' || select.value === 'fixed_grid') {
     reqLabel.style.display = 'none';
     reqCheckbox.checked = false;
     
@@ -2722,7 +3044,7 @@ function actualizarFilaCampoRequerido(select) {
     if (list.children.length === 0) {
       agregarFilaColumnaVisual(list);
     }
-  } else if (select.value === 'fixed_grid' || select.value === 'fixed_grid_dynamic_cols' || select.value === 'fixed_grid_fixed_cols') {
+  } else if (select.value === 'fixed_grid_dynamic_cols' || select.value === 'fixed_grid_fixed_cols') {
     reqLabel.style.display = 'none';
     reqCheckbox.checked = false;
     
@@ -2822,6 +3144,12 @@ function agregarFilaCampoVisual(campoObj = null) {
             <option value="select" ${typeVal === 'select' ? 'selected' : ''}>Selector / Menú Desplegable (Dropdown)</option>
             <option value="text_list" ${typeVal === 'text_list' ? 'selected' : ''}>Entradas Múltiples (Lista de Valores)</option>
           </optgroup>
+          <optgroup label="Formatos Específicos">
+            <option value="ip" ${typeVal === 'ip' ? 'selected' : ''}>Dirección IP (IPv4)</option>
+            <option value="mac" ${typeVal === 'mac' ? 'selected' : ''}>Dirección MAC</option>
+            <option value="time" ${typeVal === 'time' ? 'selected' : ''}>Hora (HH:MM)</option>
+            <option value="date_range" ${typeVal === 'date_range' ? 'selected' : ''}>Rango de Fechas (Desde - Hasta)</option>
+          </optgroup>
           <optgroup label="Tablas de Datos">
             <option value="grid" ${typeVal === 'grid' ? 'selected' : ''}>Tabla Dinámica (Grid/Filas Múltiples)</option>
             <option value="fixed_grid" ${typeVal === 'fixed_grid' ? 'selected' : ''}>Tabla de Filas Fijas (Grid Fijo)</option>
@@ -2900,7 +3228,7 @@ function agregarFilaCampoVisual(campoObj = null) {
   }
 
   // Poblar filas si ya es fixed_grid al cargar
-  if (campoObj && (campoObj.type === 'fixed_grid' || campoObj.type === 'fixed_grid_dynamic_cols' || campoObj.type === 'fixed_grid_fixed_cols') && Array.isArray(campoObj.rows)) {
+  if (campoObj && (campoObj.type === 'fixed_grid_dynamic_cols' || campoObj.type === 'fixed_grid_fixed_cols') && Array.isArray(campoObj.rows)) {
     const list = row.querySelector('.grid-rows-list');
     campoObj.rows.forEach(r => {
       agregarFilaVisual(list, r);
@@ -3103,7 +3431,7 @@ plantillaForm.addEventListener('submit', async (e) => {
         });
         campoData.columns = columns;
 
-        if (type === 'fixed_grid' || type === 'fixed_grid_dynamic_cols' || type === 'fixed_grid_fixed_cols') {
+        if (type === 'fixed_grid_dynamic_cols' || type === 'fixed_grid_fixed_cols') {
           const rows = [];
           const rowRows = f.querySelectorAll('.fila-visual-row');
           rowRows.forEach(rowRow => {
@@ -3259,7 +3587,7 @@ if (btnPreviewPlantilla) {
           });
           campoData.columns = columns;
 
-          if (type === 'fixed_grid' || type === 'fixed_grid_dynamic_cols' || type === 'fixed_grid_fixed_cols') {
+          if (type === 'fixed_grid_dynamic_cols' || type === 'fixed_grid_fixed_cols') {
             const rows = [];
             const rowRows = f.querySelectorAll('.fila-visual-row');
             rowRows.forEach(rowRow => {

@@ -1344,12 +1344,24 @@ function generarReportePDFInternal(doc, solicitud, aprobaciones, directorSigner)
             } else if (colType === 'date') {
               colWidths[idx] = 70;
               remainingWidth -= 70;
+            } else if (colType === 'date_range') {
+              colWidths[idx] = 125;
+              remainingWidth -= 125;
             } else if (colType === 'identificacion') {
               colWidths[idx] = 75;
               remainingWidth -= 75;
             } else if (colType === 'firmante' || colType === 'firmante_seccion') {
               colWidths[idx] = 110;
               remainingWidth -= 110;
+            } else if (colType === 'time') {
+              colWidths[idx] = 50;
+              remainingWidth -= 50;
+            } else if (colType === 'ip') {
+              colWidths[idx] = 85;
+              remainingWidth -= 85;
+            } else if (colType === 'mac') {
+              colWidths[idx] = 95;
+              remainingWidth -= 95;
             } else if (colName === 'Descripción / Fila' || (campo.row_label && colName === campo.row_label)) {
               colWidths[idx] = 120;
               flexibleColsCount++;
@@ -1426,8 +1438,25 @@ function generarReportePDFInternal(doc, solicitud, aprobaciones, directorSigner)
                 }
               }
               val = val || '';
-              if (colType === 'firmante') {
+              if (colType === 'firmante' || colType === 'firmante_seccion') {
                 val = formatearValorFirmanteBackend(val);
+              } else if (colType === 'date_range') {
+                let formattedVal = 'N/A';
+                if (val) {
+                  try {
+                    const parsed = typeof val === 'object' ? val : JSON.parse(val);
+                    if (parsed.desde && parsed.hasta) {
+                      formattedVal = `Desde: ${parsed.desde} | Hasta: ${parsed.hasta}`;
+                    } else if (parsed.desde) {
+                      formattedVal = `Desde: ${parsed.desde}`;
+                    } else if (parsed.hasta) {
+                      formattedVal = `Hasta: ${parsed.hasta}`;
+                    }
+                  } catch (e) {
+                    formattedVal = val;
+                  }
+                }
+                val = formattedVal;
               }
               const cellHeight = doc.heightOfString(String(val), {
                 width: colWidths[idx] - 10,
@@ -1493,6 +1522,23 @@ function generarReportePDFInternal(doc, solicitud, aprobaciones, directorSigner)
               val = val || '';
               if (colType === 'firmante' || colType === 'firmante_seccion') {
                 val = formatearValorFirmanteBackend(val);
+              } else if (colType === 'date_range') {
+                let formattedVal = 'N/A';
+                if (val) {
+                  try {
+                    const parsed = typeof val === 'object' ? val : JSON.parse(val);
+                    if (parsed.desde && parsed.hasta) {
+                      formattedVal = `Desde: ${parsed.desde} | Hasta: ${parsed.hasta}`;
+                    } else if (parsed.desde) {
+                      formattedVal = `Desde: ${parsed.desde}`;
+                    } else if (parsed.hasta) {
+                      formattedVal = `Hasta: ${parsed.hasta}`;
+                    }
+                  } catch (e) {
+                    formattedVal = val;
+                  }
+                }
+                val = formattedVal;
               }
               const isCheckbox = colType === 'checkbox';
 
@@ -1549,6 +1595,26 @@ function generarReportePDFInternal(doc, solicitud, aprobaciones, directorSigner)
         const displayVal = isChecked ? '[X]' : '[ ]';
         doc.font('Helvetica-Bold').fillColor('#1E3A8A').text(`${campo.label}: `, { continued: true })
           .font('Helvetica-Bold').fillColor(isChecked ? '#10B981' : '#64748B').text(`${displayVal}`)
+          .moveDown(0.5);
+      } else if (campo.type === 'date_range') {
+        const rawVal = datos[campo.name];
+        let valor = 'N/A';
+        if (rawVal) {
+          try {
+            const parsed = typeof rawVal === 'object' ? rawVal : JSON.parse(rawVal);
+            if (parsed.desde && parsed.hasta) {
+              valor = `Desde: ${parsed.desde} | Hasta: ${parsed.hasta}`;
+            } else if (parsed.desde) {
+              valor = `Desde: ${parsed.desde}`;
+            } else if (parsed.hasta) {
+              valor = `Hasta: ${parsed.hasta}`;
+            }
+          } catch (e) {
+            valor = rawVal;
+          }
+        }
+        doc.font('Helvetica-Bold').fillColor('#1E3A8A').text(`${campo.label}: `, { continued: true })
+          .font('Helvetica').fillColor('#334155').text(`${valor}`)
           .moveDown(0.5);
       } else {
         const valor = datos[campo.name] !== undefined && datos[campo.name] !== null && datos[campo.name] !== '' ? datos[campo.name] : 'N/A';
@@ -2098,6 +2164,11 @@ app.post('/api/admin/tipos-solicitud/preview-pdf', autenticar, esAdmin, async (r
         mockDatos[campo.name] = 'X';
       } else if (campo.type === 'date') {
         mockDatos[campo.name] = new Date().toLocaleDateString('es-ES');
+      } else if (campo.type === 'date_range') {
+        mockDatos[campo.name] = JSON.stringify({
+          desde: new Date().toISOString().split('T')[0],
+          hasta: new Date(Date.now() + 86400000).toISOString().split('T')[0]
+        });
       } else if (campo.type === 'identificacion') {
         mockDatos[campo.name] = '1799999999';
       } else if (campo.type === 'firmante') {
@@ -2139,8 +2210,21 @@ app.post('/api/admin/tipos-solicitud/preview-pdf', autenticar, esAdmin, async (r
             row[colName] = 'X';
           } else if (colType === 'date') {
             row[colName] = new Date().toLocaleDateString('es-ES');
+          } else if (colType === 'date_range') {
+            row[colName] = JSON.stringify({
+              desde: new Date().toISOString().split('T')[0],
+              hasta: new Date(Date.now() + 86400000).toISOString().split('T')[0]
+            });
           } else if (colType === 'identificacion') {
             row[colName] = '1799999999';
+          } else if (colType === 'time') {
+            row[colName] = '10:30';
+          } else if (colType === 'email') {
+            row[colName] = 'correo@ejemplo.com';
+          } else if (colType === 'ip') {
+            row[colName] = '192.168.1.10';
+          } else if (colType === 'mac') {
+            row[colName] = 'AA:BB:CC:DD:EE:FF';
           } else if (colType === 'firmante' || colType === 'firmante_seccion') {
             row[colName] = JSON.stringify({
               nombre: 'Funcionario en Grilla',

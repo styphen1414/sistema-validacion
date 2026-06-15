@@ -1,0 +1,47 @@
+======================================================================
+SISTEMA DE VALIDACION TECNICA (SVT) - NOTAS DE CAMBIOS VERSION 1.3.0
+======================================================================
+
+Fecha: 15 de Junio, 2026
+Autor: Antigravity AI & David Paredes
+Version: 1.3.0 (Estructuración de Tablas Fijas y Rango de Fechas)
+
+----------------------------------------------------------------------
+DESCRIPCION GENERAL
+----------------------------------------------------------------------
+Esta versión implementa dos grandes mejoras funcionales y correcciones de usabilidad:
+1. Corrección y alineación de la estructura del "Grid Fijo" (fixed_grid) para comportarse como una grilla dinámica en diseño pero con una sola fila no-editable para el solicitante.
+2. Adición del tipo de campo compuesto "Rango de Fechas (Desde - Hasta)" de manera integral tanto en campos independientes como dentro de columnas de las tablas dinámicas (grids), incluyendo validación lógica y restricción interactiva de fechas.
+
+----------------------------------------------------------------------
+CAMBIOS REALIZADOS
+----------------------------------------------------------------------
+
+1. CORRECCIÓN DE TABLA DE FILAS FIJAS (GRID FIJO - fixed_grid):
+   - Rediseño en el panel de administrador para que al seleccionar o cargar un campo "Tabla de Filas Fijas (Grid Fijo)", solo se puedan configurar las columnas del grid (idéntico a la Tabla Dinámica), ocultando y limpiando la configuración de filas predefinidas y etiquetas.
+   - En la vista del solicitante, se renderiza la tabla de Grid Fijo mostrando por defecto una sola fila vacía. Se eliminaron los botones de agregar/quitar filas y la columna "Descripción / Fila".
+   - En el PDF y en la vista de detalles del validador, la tabla se renderiza sin la columna inicial de Descripción, de manera limpia y alineada.
+
+2. ADICIÓN DE RANGO DE FECHAS (Desde - Hasta) COMO CAMPO SIMPLE:
+   - Registro del tipo de campo `date_range` bajo el grupo "Formatos Específicos" en el dropdown de tipos del constructor de plantillas.
+   - Renderizado en el formulario del solicitante mediante dos selectores de fecha en formato horizontal, asociados a un input oculto que serializa el valor en JSON (`{"desde":"YYYY-MM-DD", "hasta":"YYYY-MM-DD"}`).
+   - Sincronización en tiempo real de los límites mínimos y máximos: al elegir la fecha "Desde" se fija el atributo `min` de "Hasta", y al elegir la fecha "Hasta" se fija el atributo `max` de "Desde".
+   - Validación al enviar: si el campo es obligatorio, se exige ingresar ambas fechas. Además, se valida lógicamente que "Hasta" no sea anterior a "Desde".
+   - Formateo a texto amigable (`Desde: YYYY-MM-DD | Hasta: YYYY-MM-DD`) en el modal de detalles y en la generación de PDF (evitando renderizar el JSON crudo).
+
+3. ADICIÓN DE RANGO DE FECHAS EN TABLAS DINÁMICAS (GRIDS):
+   - Habilitación de `date_range` como tipo de columna en el constructor de columnas de grids/tablas fijas.
+   - Renderizado compuesto con dos inputs de fecha acoplados y alineados verticalmente dentro de la celda de la fila.
+   - Validación celda por celda en el envío del formulario para obligatoriedad y consistencia lógica ("Hasta" >= "Desde").
+   - Ajuste automático de anchos de columna (aumentado a 125 pt) en el PDF para evitar solapamientos y cortes en la lectura.
+
+4. MEJORA DE PREVISUALIZACIONES PDF (server.js):
+   - Inicialización dinámica de mock de datos para campos y columnas de tipo `date_range`, `time`, `email`, `ip`, y `mac`, garantizando previsualizaciones limpias y realistas de la plantilla para el administrador.
+
+----------------------------------------------------------------------
+COMO DESPLEGAR / ACTUALIZAR
+----------------------------------------------------------------------
+1. Descargar los cambios desde la rama correspondiente o aplicar la versión '1.3.0'.
+2. Ejecutar 'npm run dev' para iniciar el servidor de desarrollo.
+3. El sistema recargará automáticamente la interfaz en caliente.
+======================================================================
