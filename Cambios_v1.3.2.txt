@@ -4,27 +4,45 @@ SISTEMA DE VALIDACION TECNICA (SVT) - NOTAS DE CAMBIOS VERSION 1.3.2
 
 Fecha: 15 de Junio, 2026
 Autor: Antigravity AI & David Paredes
-Version: 1.3.2 (Copia en Correos de Progreso a Técnicos en Revisión)
+Version: 1.3.2 (Correos de Progreso & Modularización Integral)
 
 ----------------------------------------------------------------------
 DESCRIPCION GENERAL
 ----------------------------------------------------------------------
-Esta versión mejora el sistema de notificaciones automáticas por correo electrónico:
-1. Copia (CC) automática a todos los técnicos asignados que se encuentran en revisión de una solicitud específica en los correos de avance (aprobación de sección, reapertura, observaciones, etc.).
-2. Fusión inteligente y deduplicación de correos estáticos configurados en la plantilla y los correos de técnicos asignados.
-3. Exclusión automática del solicitante (destinatario principal) de la lista de CC para evitar envíos duplicados.
+Esta versión implementa una mejora en las notificaciones automáticas y una refactorización de arquitectura para modularizar la base de código del backend (SVT):
+1. Copia (CC) automática a todos los técnicos asignados a la revisión de una solicitud en los correos de progreso y modificaciones.
+2. Desacoplamiento de la lógica de envío de correos en su propio módulo (`mailer.js`).
+3. Desacoplamiento de la lógica de generación visual de PDFs institucionales (con PDFKit) en su propio módulo (`pdfGenerator.js`).
+4. Extracción de los middlewares de autorización y autenticación en `middlewares/auth.js`.
+5. Estructuración del enrutamiento de la API utilizando Express Routers agrupados por dominio:
+   - `routes/usuarios.js`: Inicio de sesión y consulta de tipos de solicitud de usuarios.
+   - `routes/solicitudes.js`: Creación, listado, detalles, aprobación, observaciones, asignaciones, reaperturas y descarga de PDF.
+   - `routes/admin.js`: CRUD de usuarios y plantillas de formularios, previsualización de PDFs y pruebas de correo electrónico.
 
 ----------------------------------------------------------------------
 CAMBIOS REALIZADOS
 ----------------------------------------------------------------------
 
-1. backend (server.js):
+1. backend (mailer.js):
    - Modificación de la función `enviarCorreoProgresoSolicitud` para consultar en la base de datos (tabla `aprobaciones` cruzando con `usuarios`) las direcciones de correo electrónico de todos los técnicos asignados a la revisión (`tecnico_id IS NOT NULL`).
    - Integración de estos correos de técnicos con la lista de correos en copia estáticos parametrizados en la plantilla (`mail_cc`).
    - Deduplicación (caso-insensitiva) de las direcciones de correo obtenidas.
    - Exclusión del destinatario principal (`solicitante_correo`) de la lista de copia.
    - Inserción de la lista unificada en la propiedad `cc` de `mailOptions` de Nodemailer.
    - Ajuste de logs de consola para reportar los destinatarios en copia (CC) para facilitar el monitoreo.
+
+2. backend (pdfGenerator.js) [NUEVO]:
+   - Aislamiento de la librería `pdfkit` y la maquetación visual del documento institucional en `generarReportePDFInternal`.
+   - Exporta la función asíncrona `generarPDF(solicitud, aprobaciones, directorSigner)` que devuelve la promesa con el buffer binario del PDF.
+
+3. backend (middlewares/auth.js) [NUEVO]:
+   - Definición de los middlewares `autenticar` y `esAdmin` para el control de acceso a la API.
+
+4. backend (routes/) [NUEVO]:
+   - Modularización de los controladores HTTP en archivos especializados (`routes/usuarios.js`, `routes/admin.js`, `routes/solicitudes.js`), delegando la lógica de negocio y queries SQL asociadas.
+
+5. backend (server.js):
+   - Reducción masiva de ~2200 líneas de código a menos de 100 líneas limpias de arranque, importación de enrutadores, inicialización de middlewares de Express y bootstrapping de la base de datos (migraciones iniciales).
 
 ----------------------------------------------------------------------
 COMO DESPLEGAR / ACTUALIZAR

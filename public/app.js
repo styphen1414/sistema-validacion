@@ -213,7 +213,7 @@ async function mostrarAppPrincipal() {
   // Mostrar datos de perfil en el encabezado
   userDisplayName.textContent = currentUser.nombre;
   userDisplayRole.textContent = currentUser.rol === 'tecnico' ? `TÉCNICO: ${currentUser.area.toUpperCase()}` : currentUser.rol;
-  
+
   // Ajustar color del badge de rol
   userDisplayRole.className = 'badge';
   userDisplayRole.classList.add(`badge-${currentUser.rol}`);
@@ -248,7 +248,7 @@ async function mostrarAppPrincipal() {
     solicitudesView.classList.remove('hidden');
     adminUsuariosView.classList.add('hidden');
     adminFormulariosView.classList.add('hidden');
-    
+
     // Resaltar pestaña por defecto
     const links = document.querySelectorAll('.sidebar-nav a');
     links.forEach(l => l.classList.remove('active'));
@@ -339,7 +339,7 @@ function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
       input.name = campo.name;
       input.id = `campo-${campo.name}`;
       input.className = 'standalone-checkbox-input';
-      
+
       const val = (valoresExistentes && valoresExistentes[campo.name] !== undefined && valoresExistentes[campo.name] !== null) ? valoresExistentes[campo.name] : '';
       input.checked = (val === 'X' || val === true || val === 'true');
       if (campo.required) input.required = true;
@@ -370,7 +370,7 @@ function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
 
       const thead = document.createElement('thead');
       const headerRow = document.createElement('tr');
-      
+
       // Si es grid de filas fijas, agregar columna inicial para las etiquetas fijas
       const isFixedGridType = (campo.type === 'fixed_grid' || campo.type === 'fixed_grid_dynamic_cols' || campo.type === 'fixed_grid_fixed_cols');
       if (isFixedGridType && Array.isArray(campo.rows) && campo.rows.length > 0) {
@@ -416,7 +416,7 @@ function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
         thAction.className = 'action-header';
         headerRow.appendChild(thAction);
       }
-      
+
       thead.appendChild(headerRow);
       table.appendChild(thead);
 
@@ -427,17 +427,17 @@ function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
       const addRowFn = (rowData = null, rowName = null) => {
         const tr = document.createElement('tr');
         tr.className = 'grid-row';
-        
+
         // Si es grid de filas fijas, insertar la celda de descripción de fila predefinida
         if (isFixedGridType && Array.isArray(campo.rows) && campo.rows.length > 0) {
           const tdLabel = document.createElement('td');
           tdLabel.className = 'fixed-row-label';
-          
+
           const labelInput = document.createElement('input');
           labelInput.type = 'hidden';
           labelInput.className = 'grid-cell-label-input';
           labelInput.value = rowName || (rowData ? (campo.row_label && rowData[campo.row_label] !== undefined ? rowData[campo.row_label] : rowData['Descripción / Fila']) : '');
-          
+
           tdLabel.textContent = labelInput.value;
           tdLabel.appendChild(labelInput);
           tr.appendChild(tdLabel);
@@ -447,12 +447,12 @@ function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
           const colName = typeof col === 'object' ? col.name : col;
           const colType = typeof col === 'object' ? col.type : 'text';
           const isColRequired = (typeof col === 'object' ? (col.required || false) : false) || (campo.required || false);
-          
+
           const td = document.createElement('td');
           td.style.padding = '0.3rem';
           td.style.border = '1px solid var(--border-color)';
           td.style.textAlign = colType === 'checkbox' ? 'center' : 'left';
-          
+
           const isColFirmanteComposite = ((colType === 'firmante' || colType === 'firmante_seccion') && typeof col === 'object' && (col.recoger_cedula || col.recoger_cargo));
           if (colType === 'checkbox') {
             const input = document.createElement('input');
@@ -478,7 +478,7 @@ function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
             if (val) {
               try {
                 parsed = typeof val === 'object' ? val : JSON.parse(val);
-              } catch (e) {}
+              } catch (e) { }
             }
 
             const updateCell = () => {
@@ -598,12 +598,12 @@ function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
             const selectEl = document.createElement('select');
             selectEl.className = 'grid-cell-input';
             selectEl.dataset.column = colName;
-            
+
             const defaultOpt = document.createElement('option');
             defaultOpt.value = '';
             defaultOpt.textContent = '-- Seleccione --';
             selectEl.appendChild(defaultOpt);
-            
+
             const opts = Array.isArray(col.options) ? col.options : (col.options ? col.options.split(',').map(o => o.trim()) : []);
             opts.forEach(optVal => {
               const opt = document.createElement('option');
@@ -611,7 +611,7 @@ function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
               opt.textContent = optVal;
               selectEl.appendChild(opt);
             });
-            
+
             selectEl.value = rowData ? (rowData[colName] || '') : '';
             if (isColRequired) selectEl.required = true;
             td.appendChild(selectEl);
@@ -671,7 +671,7 @@ function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
         if (campo.type === 'grid') {
           const tdAction = document.createElement('td');
           tdAction.className = 'action-cell';
-          
+
           const delBtn = document.createElement('button');
           delBtn.type = 'button';
           delBtn.className = 'btn btn-outline btn-sm';
@@ -679,7 +679,7 @@ function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
           delBtn.onclick = () => {
             tr.remove();
           };
-          
+
           tdAction.appendChild(delBtn);
           tr.appendChild(tdAction);
         }
@@ -929,7 +929,7 @@ function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
       if (valor) {
         try {
           parsed = typeof valor === 'object' ? valor : JSON.parse(valor);
-        } catch (e) {}
+        } catch (e) { }
       }
 
       const updateValue = () => {
@@ -1169,7 +1169,7 @@ function renderizarSolicitudes() {
 
   todasLasSolicitudes.forEach(sol => {
     const tr = document.createElement('tr');
-    
+
     // Formato de fecha de actualización
     const fecha = new Date(sol.fecha_actualizacion).toLocaleString('es-ES', {
       day: '2-digit',
@@ -1309,7 +1309,7 @@ function debouncedBuscar() {
 
 function filtrarBandeja(estado, elem) {
   filtroEstadoActual = estado;
-  
+
   // Ocultar vistas de administración y mostrar solicitudes
   solicitudesView.classList.remove('hidden');
   adminUsuariosView.classList.add('hidden');
@@ -1350,7 +1350,7 @@ btnNuevaSolicitud.addEventListener('click', () => {
   selectTipoSolicitud.disabled = false;
   camposDinamicosContainer.innerHTML = '<p class="form-help-text">Selecciona un tipo de solicitud para ver los campos requeridos.</p>';
   document.getElementById('modal-solicitud-titulo').textContent = 'Registrar Solicitud Técnica';
-  
+
   modalSolicitud.classList.remove('hidden');
 });
 
@@ -1405,156 +1405,187 @@ async function enviarFormulario(enviar) {
     datos[listName] = listData;
   });
 
-    // Recolectar datos de tablas dinámicas (grid)
-    const grids = camposDinamicosContainer.querySelectorAll('.grid-container');
-    grids.forEach(grid => {
-      const gridName = grid.dataset.name;
-      const rows = grid.querySelectorAll('.grid-row');
-      const gridData = [];
+  // Recolectar datos de tablas dinámicas (grid)
+  const grids = camposDinamicosContainer.querySelectorAll('.grid-container');
+  grids.forEach(grid => {
+    const gridName = grid.dataset.name;
+    const rows = grid.querySelectorAll('.grid-row');
+    const gridData = [];
 
-      // Buscar definición del campo en tiposSolicitud para obtener row_label personalizado
-      const tipo = tiposSolicitud.find(t => t.id === parseInt(tipoSolicitudId, 10));
-      const campoDef = tipo ? tipo.campos.find(c => c.name === gridName) : null;
-      const customRowLabel = campoDef ? campoDef.row_label : null;
-      const isFixedGrid = campoDef ? (campoDef.type === 'fixed_grid' || campoDef.type === 'fixed_grid_dynamic_cols' || campoDef.type === 'fixed_grid_fixed_cols') : false;
+    // Buscar definición del campo en tiposSolicitud para obtener row_label personalizado
+    const tipo = tiposSolicitud.find(t => t.id === parseInt(tipoSolicitudId, 10));
+    const campoDef = tipo ? tipo.campos.find(c => c.name === gridName) : null;
+    const customRowLabel = campoDef ? campoDef.row_label : null;
+    const isFixedGrid = campoDef ? (campoDef.type === 'fixed_grid' || campoDef.type === 'fixed_grid_dynamic_cols' || campoDef.type === 'fixed_grid_fixed_cols') : false;
 
-      rows.forEach(row => {
-        const rowData = {};
-        let hasAnyValue = false;
-        
-        const labelInput = row.querySelector('.grid-cell-label-input');
-        if (labelInput) {
-          rowData['Descripción / Fila'] = labelInput.value;
-          if (customRowLabel && customRowLabel !== 'Descripción / Fila') {
-            rowData[customRowLabel] = labelInput.value;
-          }
+    rows.forEach(row => {
+      const rowData = {};
+      let hasAnyValue = false;
+
+      const labelInput = row.querySelector('.grid-cell-label-input');
+      if (labelInput) {
+        rowData['Descripción / Fila'] = labelInput.value;
+        if (customRowLabel && customRowLabel !== 'Descripción / Fila') {
+          rowData[customRowLabel] = labelInput.value;
+        }
+      }
+
+      const cellInputs = row.querySelectorAll('.grid-cell-input');
+      cellInputs.forEach(input => {
+        const col = input.dataset.column;
+        let val = '';
+        if (input.type === 'checkbox') {
+          val = input.checked ? 'X' : '';
+        } else {
+          val = input.value.trim();
         }
 
-        const cellInputs = row.querySelectorAll('.grid-cell-input');
-        cellInputs.forEach(input => {
-          const col = input.dataset.column;
-          let val = '';
-          if (input.type === 'checkbox') {
-            val = input.checked ? 'X' : '';
-          } else {
-            val = input.value.trim();
-          }
-
-          rowData[col] = val;
-          if (val !== '') hasAnyValue = true;
-        });
-        // Para grid dinámico, solo guardar si tiene valores. Para grid fijo, siempre guardamos la fila.
-        if (labelInput || isFixedGrid || hasAnyValue) {
-          gridData.push(rowData);
-        }
+        rowData[col] = val;
+        if (val !== '') hasAnyValue = true;
       });
-
-      datos[gridName] = gridData;
+      // Para grid dinámico, solo guardar si tiene valores. Para grid fijo, siempre guardamos la fila.
+      if (labelInput || isFixedGrid || hasAnyValue) {
+        gridData.push(rowData);
+      }
     });
 
-    // Validación centralizada al enviar la solicitud
-    const tipo = tiposSolicitud.find(t => t.id === parseInt(tipoSolicitudId, 10));
-    if (enviar && tipo) {
-      let errorMsg = null;
-      const firmantesRegistrados = new Set();
-      const cedulasRegistradas = new Set();
-      
-      for (const campo of tipo.campos) {
-        if (['title', 'subtitle', 'paragraph'].includes(campo.type)) continue;
-        
-        const valor = datos[campo.name];
-        
-        // 1. Validar campos obligatorios planos
-        if (campo.required) {
-          if (campo.type === 'date_range') {
-            let parsed = { desde: '', hasta: '' };
-            try {
-              parsed = typeof valor === 'object' ? valor : JSON.parse(valor || '{}');
-            } catch(e) {}
-            if (!parsed.desde || parsed.desde.trim() === '' || !parsed.hasta || parsed.hasta.trim() === '') {
-              errorMsg = `El rango de fechas de "${campo.label}" es obligatorio (requiere fecha Desde y Hasta).`;
-              break;
-            }
-          } else if (campo.type === 'firmante' || campo.type === 'firmante_seccion') {
-            let parsed = { nombre: '', cedula: '', cargo: '' };
-            try {
-              parsed = JSON.parse(valor || '{}');
-            } catch(e) {}
-            if (!parsed.nombre || parsed.nombre.trim() === '') {
-              errorMsg = `El nombre de "${campo.label}" es obligatorio.`;
-              break;
-            }
-            if (campo.recoger_cedula && (!parsed.cedula || parsed.cedula.trim() === '')) {
-              errorMsg = `La cédula de "${campo.label}" es obligatoria.`;
-              break;
-            }
-            if (campo.recoger_cargo && (!parsed.cargo || parsed.cargo.trim() === '')) {
-              errorMsg = `El cargo de "${campo.label}" es obligatorio.`;
-              break;
-            }
-          } else if (campo.type === 'text_list' || campo.type === 'firmante_list') {
-            if (!Array.isArray(valor) || valor.length === 0) {
-              errorMsg = `El campo "${campo.label}" es obligatorio y requiere al menos una entrada.`;
-              break;
-            }
-          } else if (['grid', 'fixed_grid', 'fixed_grid_dynamic_cols', 'fixed_grid_fixed_cols'].includes(campo.type)) {
-            if (!Array.isArray(valor) || valor.length === 0) {
-              errorMsg = `La tabla "${campo.label}" es obligatoria y requiere al menos una fila.`;
-              break;
-            }
-          } else if (campo.type === 'checkbox') {
-            if (valor !== 'X') {
-              errorMsg = `Debe marcar la casilla de selección "${campo.label}".`;
-              break;
-            }
-          } else {
-            if (valor === undefined || valor === null || String(valor).trim() === '') {
-              errorMsg = `El campo "${campo.label}" es obligatorio.`;
-              break;
-            }
-          }
-        }
-        
-        if (campo.type === 'text' && valor) {
-          if (String(valor).length > 100) {
-            errorMsg = `El campo "${campo.label}" no debe superar los 100 caracteres.`;
+    datos[gridName] = gridData;
+  });
+
+  // Validación centralizada al enviar la solicitud
+  const tipo = tiposSolicitud.find(t => t.id === parseInt(tipoSolicitudId, 10));
+  if (enviar && tipo) {
+    let errorMsg = null;
+    const firmantesRegistrados = new Set();
+    const cedulasRegistradas = new Set();
+
+    for (const campo of tipo.campos) {
+      if (['title', 'subtitle', 'paragraph'].includes(campo.type)) continue;
+
+      const valor = datos[campo.name];
+
+      // 1. Validar campos obligatorios planos
+      if (campo.required) {
+        if (campo.type === 'date_range') {
+          let parsed = { desde: '', hasta: '' };
+          try {
+            parsed = typeof valor === 'object' ? valor : JSON.parse(valor || '{}');
+          } catch (e) { }
+          if (!parsed.desde || parsed.desde.trim() === '' || !parsed.hasta || parsed.hasta.trim() === '') {
+            errorMsg = `El rango de fechas de "${campo.label}" es obligatorio (requiere fecha Desde y Hasta).`;
             break;
           }
-        }
-        if (campo.type === 'textarea' && valor) {
-          if (String(valor).length > 500) {
-            errorMsg = `El campo "${campo.label}" no debe superar los 500 caracteres (máximo un párrafo).`;
-            break;
-          }
-        }
-        if ((campo.type === 'text' || campo.type === 'textarea') && valor) {
-          const safeTextRegex = /^[a-zA-Z0-9áéíóúüñÁÉÍÓÚÜÑ\s.,():;\-_!?/@]*$/;
-          if (!safeTextRegex.test(String(valor))) {
-            errorMsg = `El campo "${campo.label}" contiene caracteres no permitidos. Solo se admiten letras, números, espacios y signos básicos: .,():;-_!?/@`;
-            break;
-          }
-        }
-        if (campo.type === 'text_list' && Array.isArray(valor)) {
-          for (const item of valor) {
-            if (String(item).length > 100) {
-              errorMsg = `Una de las entradas en "${campo.label}" no debe superar los 100 caracteres.`;
-              break;
-            }
-          }
-          if (errorMsg) break;
-        }
-        
-        // Validar nombres y duplicación para firmantes simples
-        if ((campo.type === 'firmante' || campo.type === 'firmante_seccion') && valor) {
+        } else if (campo.type === 'firmante' || campo.type === 'firmante_seccion') {
           let parsed = { nombre: '', cedula: '', cargo: '' };
           try {
             parsed = JSON.parse(valor || '{}');
-          } catch(e) {}
+          } catch (e) { }
+          if (!parsed.nombre || parsed.nombre.trim() === '') {
+            errorMsg = `El nombre de "${campo.label}" es obligatorio.`;
+            break;
+          }
+          if (campo.recoger_cedula && (!parsed.cedula || parsed.cedula.trim() === '')) {
+            errorMsg = `La cédula de "${campo.label}" es obligatoria.`;
+            break;
+          }
+          if (campo.recoger_cargo && (!parsed.cargo || parsed.cargo.trim() === '')) {
+            errorMsg = `El cargo de "${campo.label}" es obligatorio.`;
+            break;
+          }
+        } else if (campo.type === 'text_list' || campo.type === 'firmante_list') {
+          if (!Array.isArray(valor) || valor.length === 0) {
+            errorMsg = `El campo "${campo.label}" es obligatorio y requiere al menos una entrada.`;
+            break;
+          }
+        } else if (['grid', 'fixed_grid', 'fixed_grid_dynamic_cols', 'fixed_grid_fixed_cols'].includes(campo.type)) {
+          if (!Array.isArray(valor) || valor.length === 0) {
+            errorMsg = `La tabla "${campo.label}" es obligatoria y requiere al menos una fila.`;
+            break;
+          }
+        } else if (campo.type === 'checkbox') {
+          if (valor !== 'X') {
+            errorMsg = `Debe marcar la casilla de selección "${campo.label}".`;
+            break;
+          }
+        } else {
+          if (valor === undefined || valor === null || String(valor).trim() === '') {
+            errorMsg = `El campo "${campo.label}" es obligatorio.`;
+            break;
+          }
+        }
+      }
+
+      if (campo.type === 'text' && valor) {
+        if (String(valor).length > 100) {
+          errorMsg = `El campo "${campo.label}" no debe superar los 100 caracteres.`;
+          break;
+        }
+      }
+      if (campo.type === 'textarea' && valor) {
+        if (String(valor).length > 500) {
+          errorMsg = `El campo "${campo.label}" no debe superar los 500 caracteres (máximo un párrafo).`;
+          break;
+        }
+      }
+      if ((campo.type === 'text' || campo.type === 'textarea') && valor) {
+        const safeTextRegex = /^[a-zA-Z0-9áéíóúüñÁÉÍÓÚÜÑ\s.,():;\-_!?/@]*$/;
+        if (!safeTextRegex.test(String(valor))) {
+          errorMsg = `El campo "${campo.label}" contiene caracteres no permitidos. Solo se admiten letras, números, espacios y signos básicos: .,():;-_!?/@`;
+          break;
+        }
+      }
+      if (campo.type === 'text_list' && Array.isArray(valor)) {
+        for (const item of valor) {
+          if (String(item).length > 100) {
+            errorMsg = `Una de las entradas en "${campo.label}" no debe superar los 100 caracteres.`;
+            break;
+          }
+        }
+        if (errorMsg) break;
+      }
+
+      // Validar nombres y duplicación para firmantes simples
+      if ((campo.type === 'firmante' || campo.type === 'firmante_seccion') && valor) {
+        let parsed = { nombre: '', cedula: '', cargo: '' };
+        try {
+          parsed = JSON.parse(valor || '{}');
+        } catch (e) { }
+        if (parsed.nombre && parsed.nombre.trim() !== '') {
+          const trimmedNombre = parsed.nombre.trim();
+          const firmanteNameRegex = /^[a-zA-Z\s]*$/;
+          if (!firmanteNameRegex.test(trimmedNombre)) {
+            errorMsg = `El nombre de "${campo.label}" solo puede contener letras y espacios (sin eñes, tildes ni caracteres especiales).`;
+            break;
+          }
+          const nombreNormalizado = trimmedNombre.toLowerCase().replace(/\s+/g, ' ');
+          if (firmantesRegistrados.has(nombreNormalizado)) {
+            errorMsg = `El firmante adicional "${trimmedNombre}" está duplicado en la solicitud.`;
+            break;
+          }
+          firmantesRegistrados.add(nombreNormalizado);
+
+          if (parsed.cedula && parsed.cedula.trim() !== '') {
+            const cedulaNormalizada = parsed.cedula.trim();
+            if (cedulasRegistradas.has(cedulaNormalizada)) {
+              errorMsg = `El firmante adicional con cédula "${cedulaNormalizada}" está duplicado en la solicitud.`;
+              break;
+            }
+            cedulasRegistradas.add(cedulaNormalizada);
+          }
+        }
+      }
+
+      if (campo.type === 'firmante_list' && Array.isArray(valor)) {
+        for (const item of valor) {
+          let parsed = { nombre: '', cedula: '', cargo: '' };
+          try {
+            parsed = JSON.parse(item || '{}');
+          } catch (e) { }
           if (parsed.nombre && parsed.nombre.trim() !== '') {
             const trimmedNombre = parsed.nombre.trim();
             const firmanteNameRegex = /^[a-zA-Z\s]*$/;
             if (!firmanteNameRegex.test(trimmedNombre)) {
-              errorMsg = `El nombre de "${campo.label}" solo puede contener letras y espacios (sin eñes, tildes ni caracteres especiales).`;
+              errorMsg = `El nombre de uno de los firmantes en "${campo.label}" solo puede contener letras y espacios (sin eñes, tildes ni caracteres especiales).`;
               break;
             }
             const nombreNormalizado = trimmedNombre.toLowerCase().replace(/\s+/g, ' ');
@@ -1574,278 +1605,247 @@ async function enviarFormulario(enviar) {
             }
           }
         }
+        if (errorMsg) break;
+      }
 
-        if (campo.type === 'firmante_list' && Array.isArray(valor)) {
-          for (const item of valor) {
-            let parsed = { nombre: '', cedula: '', cargo: '' };
-            try {
-              parsed = JSON.parse(item || '{}');
-            } catch(e) {}
-            if (parsed.nombre && parsed.nombre.trim() !== '') {
-              const trimmedNombre = parsed.nombre.trim();
-              const firmanteNameRegex = /^[a-zA-Z\s]*$/;
-              if (!firmanteNameRegex.test(trimmedNombre)) {
-                errorMsg = `El nombre de uno de los firmantes en "${campo.label}" solo puede contener letras y espacios (sin eñes, tildes ni caracteres especiales).`;
-                break;
-              }
-              const nombreNormalizado = trimmedNombre.toLowerCase().replace(/\s+/g, ' ');
-              if (firmantesRegistrados.has(nombreNormalizado)) {
-                errorMsg = `El firmante adicional "${trimmedNombre}" está duplicado en la solicitud.`;
-                break;
-              }
-              firmantesRegistrados.add(nombreNormalizado);
-
-              if (parsed.cedula && parsed.cedula.trim() !== '') {
-                const cedulaNormalizada = parsed.cedula.trim();
-                if (cedulasRegistradas.has(cedulaNormalizada)) {
-                  errorMsg = `El firmante adicional con cédula "${cedulaNormalizada}" está duplicado en la solicitud.`;
-                  break;
-                }
-                cedulasRegistradas.add(cedulaNormalizada);
-              }
-            }
-          }
-          if (errorMsg) break;
-        }
-
-        // 3. Validar Cédulas/Identificaciones de 10 dígitos (solo números)
-        const idRegex = /^\d{10}$/;
-        if ((campo.type === 'firmante' || campo.type === 'firmante_seccion') && campo.recoger_cedula && valor) {
-          let parsed = { nombre: '', cedula: '', cargo: '' };
-          try {
-            parsed = JSON.parse(valor || '{}');
-          } catch(e) {}
-          if (parsed.cedula && parsed.cedula.trim() !== '') {
-            if (!idRegex.test(parsed.cedula.trim())) {
-              errorMsg = `La cédula de "${campo.label}" debe contener exactamente 10 dígitos numéricos.`;
-              break;
-            }
-          }
-        }
-        
-        if (campo.type === 'firmante_list' && campo.recoger_cedula && Array.isArray(valor)) {
-          for (const item of valor) {
-            let parsed = { nombre: '', cedula: '', cargo: '' };
-            try {
-              parsed = JSON.parse(item || '{}');
-            } catch(e) {}
-            if (parsed.cedula && parsed.cedula.trim() !== '') {
-              if (!idRegex.test(parsed.cedula.trim())) {
-                errorMsg = `La cédula de uno de los firmantes en "${campo.label}" debe contener exactamente 10 dígitos numéricos.`;
-                break;
-              }
-            }
-          }
-          if (errorMsg) break;
-        }
-
-        // Validar lógica de fecha en date_range
-        if (campo.type === 'date_range' && valor) {
-          let parsed = { desde: '', hasta: '' };
-          try {
-            parsed = typeof valor === 'object' ? valor : JSON.parse(valor);
-          } catch(e) {}
-          if ((parsed.desde && !parsed.hasta) || (!parsed.desde && parsed.hasta)) {
-            errorMsg = `En el campo "${campo.label}", debe ingresar tanto la fecha "Desde" como la fecha "Hasta".`;
+      // 3. Validar Cédulas/Identificaciones de 10 dígitos (solo números)
+      const idRegex = /^\d{10}$/;
+      if ((campo.type === 'firmante' || campo.type === 'firmante_seccion') && campo.recoger_cedula && valor) {
+        let parsed = { nombre: '', cedula: '', cargo: '' };
+        try {
+          parsed = JSON.parse(valor || '{}');
+        } catch (e) { }
+        if (parsed.cedula && parsed.cedula.trim() !== '') {
+          if (!idRegex.test(parsed.cedula.trim())) {
+            errorMsg = `La cédula de "${campo.label}" debe contener exactamente 10 dígitos numéricos.`;
             break;
           }
-          if (parsed.desde && parsed.hasta) {
-            if (parsed.hasta < parsed.desde) {
-              errorMsg = `En el campo "${campo.label}", la fecha "Hasta" no puede ser anterior a la fecha "Desde".`;
+        }
+      }
+
+      if (campo.type === 'firmante_list' && campo.recoger_cedula && Array.isArray(valor)) {
+        for (const item of valor) {
+          let parsed = { nombre: '', cedula: '', cargo: '' };
+          try {
+            parsed = JSON.parse(item || '{}');
+          } catch (e) { }
+          if (parsed.cedula && parsed.cedula.trim() !== '') {
+            if (!idRegex.test(parsed.cedula.trim())) {
+              errorMsg = `La cédula de uno de los firmantes en "${campo.label}" debe contener exactamente 10 dígitos numéricos.`;
               break;
             }
           }
         }
+        if (errorMsg) break;
+      }
 
-        // 3.5 Validar formatos específicos (IP, MAC, Hora) para campos simples
-        if (valor !== undefined && valor !== null && String(valor).trim() !== '') {
-          const valorTrim = String(valor).trim();
-          if (campo.type === 'ip') {
-            const ipRegex = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
-            if (!ipRegex.test(valorTrim)) {
-              errorMsg = `El campo "${campo.label}" debe ser una dirección IP válida (ej. 192.168.1.10).`;
-              break;
-            }
-          }
-          if (campo.type === 'mac') {
-            const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$|^([0-9A-Fa-f]{4}\.){2}[0-9A-Fa-f]{4}$/;
-            if (!macRegex.test(valorTrim)) {
-              errorMsg = `El campo "${campo.label}" debe ser una dirección MAC válida (ej. AA:BB:CC:DD:EE:FF).`;
-              break;
-            }
-          }
-          if (campo.type === 'time') {
-            const timeRegex = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
-            if (!timeRegex.test(valorTrim)) {
-              errorMsg = `El campo "${campo.label}" debe ser una hora válida en formato de 24 horas (HH:MM).`;
-              break;
-            }
+      // Validar lógica de fecha en date_range
+      if (campo.type === 'date_range' && valor) {
+        let parsed = { desde: '', hasta: '' };
+        try {
+          parsed = typeof valor === 'object' ? valor : JSON.parse(valor);
+        } catch (e) { }
+        if ((parsed.desde && !parsed.hasta) || (!parsed.desde && parsed.hasta)) {
+          errorMsg = `En el campo "${campo.label}", debe ingresar tanto la fecha "Desde" como la fecha "Hasta".`;
+          break;
+        }
+        if (parsed.desde && parsed.hasta) {
+          if (parsed.hasta < parsed.desde) {
+            errorMsg = `En el campo "${campo.label}", la fecha "Hasta" no puede ser anterior a la fecha "Desde".`;
+            break;
           }
         }
-        
-        // 4. Validar filas de la tabla dinámica
-        if (['grid', 'fixed_grid', 'fixed_grid_dynamic_cols', 'fixed_grid_fixed_cols'].includes(campo.type) && Array.isArray(valor)) {
-          for (const row of valor) {
-            // Obtener todas las columnas (tanto las predefinidas como las dinámicas del objeto de la fila)
-            let columns = [...(campo.columns || [])];
-            if (campo.type === 'fixed_grid_dynamic_cols') {
-              const predefinedColNames = columns.map(col => typeof col === 'object' ? col.name : col);
-              const rowLabelKey = campo.row_label || 'Descripción / Fila';
-              Object.keys(row).forEach(key => {
-                if (key !== rowLabelKey && key !== 'Descripción / Fila' && !predefinedColNames.includes(key)) {
-                  columns.push({ name: key, type: 'text', required: false });
+      }
+
+      // 3.5 Validar formatos específicos (IP, MAC, Hora) para campos simples
+      if (valor !== undefined && valor !== null && String(valor).trim() !== '') {
+        const valorTrim = String(valor).trim();
+        if (campo.type === 'ip') {
+          const ipRegex = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
+          if (!ipRegex.test(valorTrim)) {
+            errorMsg = `El campo "${campo.label}" debe ser una dirección IP válida (ej. 192.168.1.10).`;
+            break;
+          }
+        }
+        if (campo.type === 'mac') {
+          const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$|^([0-9A-Fa-f]{4}\.){2}[0-9A-Fa-f]{4}$/;
+          if (!macRegex.test(valorTrim)) {
+            errorMsg = `El campo "${campo.label}" debe ser una dirección MAC válida (ej. AA:BB:CC:DD:EE:FF).`;
+            break;
+          }
+        }
+        if (campo.type === 'time') {
+          const timeRegex = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
+          if (!timeRegex.test(valorTrim)) {
+            errorMsg = `El campo "${campo.label}" debe ser una hora válida en formato de 24 horas (HH:MM).`;
+            break;
+          }
+        }
+      }
+
+      // 4. Validar filas de la tabla dinámica
+      if (['grid', 'fixed_grid', 'fixed_grid_dynamic_cols', 'fixed_grid_fixed_cols'].includes(campo.type) && Array.isArray(valor)) {
+        for (const row of valor) {
+          // Obtener todas las columnas (tanto las predefinidas como las dinámicas del objeto de la fila)
+          let columns = [...(campo.columns || [])];
+          if (campo.type === 'fixed_grid_dynamic_cols') {
+            const predefinedColNames = columns.map(col => typeof col === 'object' ? col.name : col);
+            const rowLabelKey = campo.row_label || 'Descripción / Fila';
+            Object.keys(row).forEach(key => {
+              if (key !== rowLabelKey && key !== 'Descripción / Fila' && !predefinedColNames.includes(key)) {
+                columns.push({ name: key, type: 'text', required: false });
+              }
+            });
+          }
+          for (const col of columns) {
+            const colName = typeof col === 'object' ? col.name : col;
+            const colType = typeof col === 'object' ? col.type : 'text';
+            const isColRequired = (typeof col === 'object' ? (col.required || false) : false) || campo.required;
+            const cellVal = row[colName];
+
+            if (isColRequired) {
+              if (colType === 'date_range') {
+                let parsed = { desde: '', hasta: '' };
+                try {
+                  parsed = typeof cellVal === 'object' ? cellVal : JSON.parse(cellVal || '{}');
+                } catch (e) { }
+                if (!parsed.desde || parsed.desde.trim() === '' || !parsed.hasta || parsed.hasta.trim() === '') {
+                  errorMsg = `El rango de fechas de la columna "${colName}" en la tabla "${campo.label}" es obligatorio (requiere fecha Desde y Hasta).`;
+                  break;
                 }
-              });
+              } else if (colType === 'firmante' || colType === 'firmante_seccion') {
+                let parsed = { nombre: '', cedula: '', cargo: '' };
+                try {
+                  parsed = JSON.parse(cellVal || '{}');
+                } catch (e) { }
+                if (!parsed.nombre || parsed.nombre.trim() === '') {
+                  errorMsg = `El nombre de la columna "${colName}" en la tabla "${campo.label}" es obligatorio.`;
+                  break;
+                }
+                if (col.recoger_cedula && (!parsed.cedula || parsed.cedula.trim() === '')) {
+                  errorMsg = `La cédula de la columna "${colName}" en la tabla "${campo.label}" es obligatoria.`;
+                  break;
+                }
+              } else {
+                if (cellVal === undefined || cellVal === null || String(cellVal).trim() === '') {
+                  errorMsg = `El campo de la columna "${colName}" en la tabla "${campo.label}" es obligatorio.`;
+                  break;
+                }
+              }
             }
-            for (const col of columns) {
-              const colName = typeof col === 'object' ? col.name : col;
-              const colType = typeof col === 'object' ? col.type : 'text';
-              const isColRequired = (typeof col === 'object' ? (col.required || false) : false) || campo.required;
-              const cellVal = row[colName];
-              
-              if (isColRequired) {
-                if (colType === 'date_range') {
-                  let parsed = { desde: '', hasta: '' };
-                  try {
-                    parsed = typeof cellVal === 'object' ? cellVal : JSON.parse(cellVal || '{}');
-                  } catch(e) {}
-                  if (!parsed.desde || parsed.desde.trim() === '' || !parsed.hasta || parsed.hasta.trim() === '') {
-                    errorMsg = `El rango de fechas de la columna "${colName}" en la tabla "${campo.label}" es obligatorio (requiere fecha Desde y Hasta).`;
-                    break;
-                  }
-                } else if (colType === 'firmante' || colType === 'firmante_seccion') {
-                  let parsed = { nombre: '', cedula: '', cargo: '' };
-                  try {
-                    parsed = JSON.parse(cellVal || '{}');
-                  } catch(e) {}
-                  if (!parsed.nombre || parsed.nombre.trim() === '') {
-                    errorMsg = `El nombre de la columna "${colName}" en la tabla "${campo.label}" es obligatorio.`;
-                    break;
-                  }
-                  if (col.recoger_cedula && (!parsed.cedula || parsed.cedula.trim() === '')) {
-                    errorMsg = `La cédula de la columna "${colName}" en la tabla "${campo.label}" es obligatoria.`;
-                    break;
-                  }
-                } else {
-                  if (cellVal === undefined || cellVal === null || String(cellVal).trim() === '') {
-                    errorMsg = `El campo de la columna "${colName}" en la tabla "${campo.label}" es obligatorio.`;
+
+            if (cellVal !== undefined && cellVal !== null && String(cellVal).trim() !== '') {
+              const cellValTrim = String(cellVal).trim();
+              if (colType === 'text' && cellValTrim.length > 100) {
+                errorMsg = `El valor en la columna "${colName}" de la tabla "${campo.label}" no debe superar los 100 caracteres.`;
+                break;
+              }
+              if (colType === 'textarea' && cellValTrim.length > 500) {
+                errorMsg = `El valor en la columna "${colName}" de la tabla "${campo.label}" no debe superar los 500 caracteres.`;
+                break;
+              }
+              if ((colType === 'text' || colType === 'textarea') && cellValTrim) {
+                const safeTextRegex = /^[a-zA-Z0-9áéíóúüñÁÉÍÓÚÜÑ\s.,():;\-_!?/@]*$/;
+                if (!safeTextRegex.test(cellValTrim)) {
+                  errorMsg = `El valor en la columna "${colName}" de la tabla "${campo.label}" contiene caracteres no permitidos. Solo se admiten letras, números, espacios y signos básicos: .,():;-_!?/@`;
+                  break;
+                }
+              }
+              if (colType === 'identificacion' && !idRegex.test(cellValTrim)) {
+                errorMsg = `La identificación en la columna "${colName}" de la tabla "${campo.label}" debe contener exactamente 10 dígitos numéricos.`;
+                break;
+              }
+              if (colType === 'email') {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(cellValTrim)) {
+                  errorMsg = `El valor "${cellVal}" en la columna "${colName}" de la tabla "${campo.label}" no es un correo electrónico válido.`;
+                  break;
+                }
+              }
+              if (colType === 'ip') {
+                const ipRegex = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
+                if (!ipRegex.test(cellValTrim)) {
+                  errorMsg = `El valor "${cellVal}" en la columna "${colName}" de la tabla "${campo.label}" debe ser una dirección IP válida (ej. 192.168.1.10).`;
+                  break;
+                }
+              }
+              if (colType === 'mac') {
+                const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$|^([0-9A-Fa-f]{4}\.){2}[0-9A-Fa-f]{4}$/;
+                if (!macRegex.test(cellValTrim)) {
+                  errorMsg = `El valor "${cellVal}" en la columna "${colName}" de la tabla "${campo.label}" debe ser una dirección MAC válida (ej. AA:BB:CC:DD:EE:FF).`;
+                  break;
+                }
+              }
+              if (colType === 'time') {
+                const timeRegex = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
+                if (!timeRegex.test(cellValTrim)) {
+                  errorMsg = `El valor "${cellVal}" en la columna "${colName}" de la tabla "${campo.label}" debe ser una hora válida en formato de 24 horas (HH:MM).`;
+                  break;
+                }
+              }
+              if (colType === 'date_range') {
+                let parsed = { desde: '', hasta: '' };
+                try {
+                  parsed = typeof cellVal === 'object' ? cellVal : JSON.parse(cellVal);
+                } catch (e) { }
+                if ((parsed.desde && !parsed.hasta) || (!parsed.desde && parsed.hasta)) {
+                  errorMsg = `En la columna "${colName}" de la tabla "${campo.label}", debe ingresar tanto la fecha "Desde" como la fecha "Hasta".`;
+                  break;
+                }
+                if (parsed.desde && parsed.hasta) {
+                  if (parsed.hasta < parsed.desde) {
+                    errorMsg = `En la columna "${colName}" de la tabla "${campo.label}", la fecha "Hasta" no puede ser anterior a la fecha "Desde".`;
                     break;
                   }
                 }
               }
-              
-              if (cellVal !== undefined && cellVal !== null && String(cellVal).trim() !== '') {
-                const cellValTrim = String(cellVal).trim();
-                if (colType === 'text' && cellValTrim.length > 100) {
-                  errorMsg = `El valor en la columna "${colName}" de la tabla "${campo.label}" no debe superar los 100 caracteres.`;
-                  break;
-                }
-                if (colType === 'textarea' && cellValTrim.length > 500) {
-                  errorMsg = `El valor en la columna "${colName}" de la tabla "${campo.label}" no debe superar los 500 caracteres.`;
-                  break;
-                }
-                if ((colType === 'text' || colType === 'textarea') && cellValTrim) {
-                  const safeTextRegex = /^[a-zA-Z0-9áéíóúüñÁÉÍÓÚÜÑ\s.,():;\-_!?/@]*$/;
-                  if (!safeTextRegex.test(cellValTrim)) {
-                    errorMsg = `El valor en la columna "${colName}" de la tabla "${campo.label}" contiene caracteres no permitidos. Solo se admiten letras, números, espacios y signos básicos: .,():;-_!?/@`;
+              if (colType === 'firmante' || colType === 'firmante_seccion') {
+                let parsed = { nombre: '', cedula: '', cargo: '' };
+                try {
+                  parsed = JSON.parse(cellVal || '{}');
+                } catch (e) { }
+                if (parsed.nombre && parsed.nombre.trim() !== '') {
+                  const trimmedNombre = parsed.nombre.trim();
+                  const firmanteNameRegex = /^[a-zA-Z\s]*$/;
+                  if (!firmanteNameRegex.test(trimmedNombre)) {
+                    errorMsg = `El nombre del firmante en la columna "${colName}" de la tabla "${campo.label}" solo puede contener letras y espacios (sin eñes, tildes ni caracteres especiales).`;
                     break;
                   }
-                }
-                if (colType === 'identificacion' && !idRegex.test(cellValTrim)) {
-                  errorMsg = `La identificación en la columna "${colName}" de la tabla "${campo.label}" debe contener exactamente 10 dígitos numéricos.`;
-                  break;
-                }
-                if (colType === 'email') {
-                  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                  if (!emailRegex.test(cellValTrim)) {
-                    errorMsg = `El valor "${cellVal}" en la columna "${colName}" de la tabla "${campo.label}" no es un correo electrónico válido.`;
+                  const nombreNormalizado = trimmedNombre.toLowerCase().replace(/\s+/g, ' ');
+                  if (firmantesRegistrados.has(nombreNormalizado)) {
+                    errorMsg = `El firmante adicional "${trimmedNombre}" está duplicado en la solicitud.`;
                     break;
                   }
-                }
-                if (colType === 'ip') {
-                  const ipRegex = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
-                  if (!ipRegex.test(cellValTrim)) {
-                    errorMsg = `El valor "${cellVal}" en la columna "${colName}" de la tabla "${campo.label}" debe ser una dirección IP válida (ej. 192.168.1.10).`;
-                    break;
-                  }
-                }
-                if (colType === 'mac') {
-                  const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$|^([0-9A-Fa-f]{4}\.){2}[0-9A-Fa-f]{4}$/;
-                  if (!macRegex.test(cellValTrim)) {
-                    errorMsg = `El valor "${cellVal}" en la columna "${colName}" de la tabla "${campo.label}" debe ser una dirección MAC válida (ej. AA:BB:CC:DD:EE:FF).`;
-                    break;
-                  }
-                }
-                if (colType === 'time') {
-                  const timeRegex = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
-                  if (!timeRegex.test(cellValTrim)) {
-                    errorMsg = `El valor "${cellVal}" en la columna "${colName}" de la tabla "${campo.label}" debe ser una hora válida en formato de 24 horas (HH:MM).`;
-                    break;
-                  }
-                }
-                if (colType === 'date_range') {
-                  let parsed = { desde: '', hasta: '' };
-                  try {
-                    parsed = typeof cellVal === 'object' ? cellVal : JSON.parse(cellVal);
-                  } catch(e) {}
-                  if ((parsed.desde && !parsed.hasta) || (!parsed.desde && parsed.hasta)) {
-                    errorMsg = `En la columna "${colName}" de la tabla "${campo.label}", debe ingresar tanto la fecha "Desde" como la fecha "Hasta".`;
-                    break;
-                  }
-                  if (parsed.desde && parsed.hasta) {
-                    if (parsed.hasta < parsed.desde) {
-                      errorMsg = `En la columna "${colName}" de la tabla "${campo.label}", la fecha "Hasta" no puede ser anterior a la fecha "Desde".`;
-                      break;
-                    }
-                  }
-                }
-                if (colType === 'firmante' || colType === 'firmante_seccion') {
-                  let parsed = { nombre: '', cedula: '', cargo: '' };
-                  try {
-                    parsed = JSON.parse(cellVal || '{}');
-                  } catch(e) {}
-                  if (parsed.nombre && parsed.nombre.trim() !== '') {
-                    const trimmedNombre = parsed.nombre.trim();
-                    const firmanteNameRegex = /^[a-zA-Z\s]*$/;
-                    if (!firmanteNameRegex.test(trimmedNombre)) {
-                      errorMsg = `El nombre del firmante en la columna "${colName}" de la tabla "${campo.label}" solo puede contener letras y espacios (sin eñes, tildes ni caracteres especiales).`;
-                      break;
-                    }
-                    const nombreNormalizado = trimmedNombre.toLowerCase().replace(/\s+/g, ' ');
-                    if (firmantesRegistrados.has(nombreNormalizado)) {
-                      errorMsg = `El firmante adicional "${trimmedNombre}" está duplicado en la solicitud.`;
-                      break;
-                    }
-                    firmantesRegistrados.add(nombreNormalizado);
+                  firmantesRegistrados.add(nombreNormalizado);
 
-                    if (parsed.cedula && parsed.cedula.trim() !== '') {
-                      const cedulaNormalizada = parsed.cedula.trim();
-                      if (cedulasRegistradas.has(cedulaNormalizada)) {
-                        errorMsg = `El firmante adicional con cédula "${cedulaNormalizada}" está duplicado en la solicitud.`;
-                        break;
-                      }
-                      cedulasRegistradas.add(cedulaNormalizada);
+                  if (parsed.cedula && parsed.cedula.trim() !== '') {
+                    const cedulaNormalizada = parsed.cedula.trim();
+                    if (cedulasRegistradas.has(cedulaNormalizada)) {
+                      errorMsg = `El firmante adicional con cédula "${cedulaNormalizada}" está duplicado en la solicitud.`;
+                      break;
+                    }
+                    cedulasRegistradas.add(cedulaNormalizada);
 
-                      if (!idRegex.test(cedulaNormalizada)) {
-                        errorMsg = `La cédula del firmante en la columna "${colName}" de la tabla "${campo.label}" debe tener exactamente 10 dígitos numéricos.`;
-                        break;
-                      }
+                    if (!idRegex.test(cedulaNormalizada)) {
+                      errorMsg = `La cédula del firmante en la columna "${colName}" de la tabla "${campo.label}" debe tener exactamente 10 dígitos numéricos.`;
+                      break;
                     }
                   }
                 }
               }
             }
-            if (errorMsg) break;
           }
           if (errorMsg) break;
         }
-      }
-      
-      if (errorMsg) {
-        alert(errorMsg);
-        return;
+        if (errorMsg) break;
       }
     }
+
+    if (errorMsg) {
+      alert(errorMsg);
+      return;
+    }
+  }
 
   const payload = {
     tipo_solicitud_id: parseInt(tipoSolicitudId, 10),
@@ -1925,7 +1925,7 @@ async function verDetalle(id, isRefresh = false) {
     detTipo.textContent = sol.tipo_nombre;
     detSolicitante.textContent = sol.solicitante_nombre;
     detFecha.textContent = new Date(sol.fecha_creacion).toLocaleString('es-ES');
-    
+
     detEstado.textContent = sol.estado.replace('_', ' ');
     detEstado.className = `badge badge-${sol.estado}`;
 
@@ -1955,14 +1955,14 @@ async function verDetalle(id, isRefresh = false) {
       } else if (campo.type === 'grid' || campo.type === 'fixed_grid' || campo.type === 'fixed_grid_dynamic_cols' || campo.type === 'fixed_grid_fixed_cols') {
         const gridWrapper = document.createElement('div');
         gridWrapper.className = 'detail-grid-wrapper';
-        
+
         const label = document.createElement('strong');
         label.textContent = campo.label + ':';
         gridWrapper.appendChild(label);
 
         const gridData = sol.datos[campo.name];
         let columns = [...(campo.columns || [])];
-        
+
         if (campo.type === 'fixed_grid_dynamic_cols' && Array.isArray(gridData) && gridData.length > 0) {
           const allKeys = new Set();
           gridData.forEach(row => {
@@ -2009,7 +2009,7 @@ async function verDetalle(id, isRefresh = false) {
               const colName = typeof col === 'object' ? col.name : col;
               const colType = typeof col === 'object' ? col.type : 'text';
               const td = document.createElement('td');
-              
+
               let val = row[colName];
               if (val === undefined) {
                 if (colName === campo.row_label) {
@@ -2057,12 +2057,12 @@ async function verDetalle(id, isRefresh = false) {
           noData.textContent = 'Sin registros ingresados';
           gridWrapper.appendChild(noData);
         }
-        
+
         detCamposValores.appendChild(gridWrapper);
       } else if (campo.type === 'text_list' || campo.type === 'firmante_list') {
         const valItem = document.createElement('div');
         valItem.className = 'field-val-item';
-        
+
         const listData = sol.datos[campo.name];
         let valor = 'N/A';
         if (Array.isArray(listData) && listData.length > 0) {
@@ -2093,7 +2093,7 @@ async function verDetalle(id, isRefresh = false) {
       } else if (campo.type === 'date_range') {
         const valItem = document.createElement('div');
         valItem.className = 'field-val-item';
-        
+
         const rawVal = sol.datos[campo.name];
         let valor = 'N/A';
         if (rawVal) {
@@ -2118,7 +2118,7 @@ async function verDetalle(id, isRefresh = false) {
       } else {
         const valItem = document.createElement('div');
         valItem.className = 'field-val-item';
-        
+
         const rawVal = sol.datos[campo.name];
         let valor = rawVal !== undefined && rawVal !== null && rawVal !== '' ? rawVal : 'N/A';
         if (campo.type === 'firmante' || campo.type === 'firmante_seccion') {
@@ -2138,13 +2138,13 @@ async function verDetalle(id, isRefresh = false) {
       if (ap.area === 'director') return; // No mostrar las áreas espectadoras en el listado de validaciones por área de la interfaz
       const card = document.createElement('div');
       card.className = `aprobacion-card ${ap.estado === 'aprobado' ? 'aprobado' : ''}`;
-      
+
       const fecha = ap.fecha ? new Date(ap.fecha).toLocaleDateString('es-ES') : '';
       const revisor = ap.tecnico_nombre ? `por ${escaparHTML(ap.tecnico_nombre)}` : '';
       const obsHtml = ap.observacion ? `<div class="aprobacion-obs"><strong>Obs:</strong> "${escaparHTML(ap.observacion)}"</div>` : '';
-      
-      const estadoTexto = ap.estado === 'pendiente' && ap.tecnico_nombre 
-        ? 'ASIGNADO' 
+
+      const estadoTexto = ap.estado === 'pendiente' && ap.tecnico_nombre
+        ? 'ASIGNADO'
         : (ap.estado === 'pendiente' ? 'PENDIENTE' : (ap.observacion ? 'APROBADO CON OBS.' : 'APROBADO'));
 
       const revisorInfo = (revisor || fecha) ? `<span class="revisor-info">${revisor} ${fecha}</span>` : '';
@@ -2170,7 +2170,7 @@ async function verDetalle(id, isRefresh = false) {
       sol.observaciones.forEach(obs => {
         const item = document.createElement('div');
         item.className = 'obs-item';
-        
+
         const fecha = new Date(obs.fecha).toLocaleString('es-ES');
         item.innerHTML = `
           <div class="obs-meta">
@@ -2199,7 +2199,7 @@ async function verDetalle(id, isRefresh = false) {
     // CONTROL DEL PANEL DE ACCIÓN PARA TÉCNICOS
     panelAccionesTecnicas.classList.add('hidden');
     panelAsignacionContainer.innerHTML = '';
-    
+
     const actionsButtonsRow = panelAccionesTecnicas.querySelector('.action-buttons-row');
     const obsInputArea = panelAccionesTecnicas.querySelector('.observacion-input-area');
 
@@ -2211,7 +2211,7 @@ async function verDetalle(id, isRefresh = false) {
         if (!isRefresh) {
           observacionTexto.value = '';
         }
-        
+
         // Control de asignación exclusiva (Solo aplica a seguridad, gibdd, giitrc)
         if (['seguridad', 'gibdd', 'giitrc', 'osi'].includes(currentUser.area)) {
           if (!aprobacionArea.tecnico_id) {
@@ -2270,7 +2270,7 @@ async function verDetalle(id, isRefresh = false) {
 
     // CONTROL DEL PANEL DE EDICIÓN Y ACCIONES ADICIONALES
     detAccionesAdicionales.innerHTML = '';
-    
+
     // 1. Descarga de PDF para solicitudes aprobadas
     if (sol.estado === 'aprobado') {
       const alertDiv = document.createElement('div');
@@ -2358,7 +2358,7 @@ function abrirEdicion(solicitudId, tipoId) {
   if (!sol) return;
 
   cerrarModal('modal-detalle');
-  
+
   solicitudIdInput.value = sol.id;
   selectTipoSolicitud.value = tipoId;
   selectTipoSolicitud.disabled = true; // No se puede cambiar el tipo en edición
@@ -2541,7 +2541,7 @@ async function descargarPDF(solicitudId) {
     if (disposition && disposition.indexOf('attachment') !== -1) {
       const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
       const matches = filenameRegex.exec(disposition);
-      if (matches != null && matches[1]) { 
+      if (matches != null && matches[1]) {
         filename = matches[1].replace(/['"]/g, '');
       }
     }
@@ -2601,7 +2601,7 @@ function limpiarFormularioCorreoPrueba() {
 if (correoPruebaForm) {
   correoPruebaForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    
+
     const destinatario = document.getElementById('mail-destinatario').value.trim();
     const cc = document.getElementById('mail-cc').value.trim();
     const asunto = document.getElementById('mail-asunto').value.trim();
@@ -2637,13 +2637,13 @@ if (correoPruebaForm) {
       correoResultadoContainer.style.borderColor = '#C3E6CB';
       correoResultadoContainer.style.borderStyle = 'solid';
       correoResultadoContainer.style.borderWidth = '1px';
-      
+
       let htmlContent = `<strong>✅ ¡Envío Exitoso!</strong><br>${data.message}`;
-      
+
       if (data.previewUrl) {
         htmlContent += `<br><br>👉 <a href="${data.previewUrl}" target="_blank" style="color: #155724; font-weight: bold; text-decoration: underline;">Haz clic aquí para abrir la previsualización del correo electrónico en Ethereal</a>`;
       }
-      
+
       correoResultadoContainer.innerHTML = htmlContent;
       correoResultadoContainer.classList.remove('hidden');
     } catch (error) {
@@ -2670,9 +2670,9 @@ async function cargarUsuariosAdmin() {
     });
     if (!response.ok) throw new Error('Error al cargar la lista de usuarios.');
     const usuarios = await response.json();
-    
+
     adminUsuariosSegmentedContainer.innerHTML = '';
-    
+
     if (usuarios.length === 0) {
       adminUsuariosSegmentedContainer.innerHTML = '<div class="alert alert-danger text-center">No hay usuarios registrados en el sistema.</div>';
       return;
@@ -2718,11 +2718,11 @@ async function cargarUsuariosAdmin() {
 
     segmentos.forEach(seg => {
       const filtered = usuarios.filter(seg.filtro);
-      
+
       const segmentDiv = document.createElement('div');
       segmentDiv.className = 'admin-segment-card collapsed'; // Iniciar colapsado para no scrollear demasiado
       segmentDiv.style.marginBottom = '1.5rem';
-      
+
       const header = document.createElement('div');
       header.className = 'admin-segment-header';
       header.innerHTML = `
@@ -2765,9 +2765,9 @@ async function cargarUsuariosAdmin() {
             detailsHtml += `<br><small style="color:var(--accent-color); font-weight: 500;">Dir/Proyecto: ${escaparHTML(usr.direccion_proyecto)}</small>`;
           }
           const cedulaCargo = detailsHtml;
-          
+
           let nombreHtml = escaparHTML(usr.nombre);
- 
+
           tr.innerHTML = `
             <td class="font-bold">${nombreHtml}</td>
             <td>${cedulaCargo}</td>
@@ -2782,7 +2782,7 @@ async function cargarUsuariosAdmin() {
         });
         tableContainer.appendChild(table);
       }
-      
+
       segmentDiv.appendChild(tableContainer);
       adminUsuariosSegmentedContainer.appendChild(segmentDiv);
     });
@@ -2794,7 +2794,7 @@ async function cargarUsuariosAdmin() {
 // Abrir Modal para Crear/Editar Usuario
 function abrirModalUsuario(user = null) {
   formUsuarioReset();
-  
+
   if (user) {
     document.getElementById('modal-usuario-titulo').textContent = 'Editar Usuario';
     usuarioIdInput.value = user.id;
@@ -2806,7 +2806,7 @@ function abrirModalUsuario(user = null) {
     usrPassword.required = false;
     usrPasswordHelp.textContent = 'Deja en blanco para no modificar la contraseña.';
     usrDireccionProyecto.value = user.direccion_proyecto || '';
-    
+
     if (user.rol === 'tecnico') {
       usrArea.value = user.area || '';
     }
@@ -2821,7 +2821,7 @@ function abrirModalUsuario(user = null) {
     usrPasswordHelp.textContent = 'Contraseña requerida para nuevos usuarios.';
     cambiarSelectorRol();
   }
-  
+
   modalUsuario.classList.remove('hidden');
 }
 
@@ -2867,7 +2867,7 @@ function cambiarSelectorRol() {
 // Procesar Guardar/Editar Usuario
 usuarioForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  
+
   const id = usuarioIdInput.value;
   const nombre = usrNombre.value;
   const cedula = usrCedula.value;
@@ -2877,13 +2877,13 @@ usuarioForm.addEventListener('submit', async (e) => {
   const rol = usrRol.value;
   const area = usrArea.value;
   const direccion_proyecto = usrDireccionProyecto.value;
-  
-  const payload = { 
-    nombre, 
-    cedula, 
-    cargo, 
-    username, 
-    rol, 
+
+  const payload = {
+    nombre,
+    cedula,
+    cargo,
+    username,
+    rol,
     area: rol === 'tecnico' ? area : null,
     direccion_proyecto: rol === 'solicitante' ? direccion_proyecto : null,
     firma_documentos: (rol === 'tecnico' && area === 'osi') ? usrFirmaDocumentos.checked : false
@@ -2891,7 +2891,7 @@ usuarioForm.addEventListener('submit', async (e) => {
   if (password && password.trim() !== '') {
     payload.password = password;
   }
-  
+
   try {
     let response;
     if (id) {
@@ -2913,10 +2913,10 @@ usuarioForm.addEventListener('submit', async (e) => {
         body: JSON.stringify(payload)
       });
     }
-    
+
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Error al guardar usuario.');
-    
+
     cerrarModal('modal-usuario');
     await cargarUsuariosAdmin();
   } catch (error) {
@@ -2931,7 +2931,7 @@ async function eliminarUsuario(id) {
     return;
   }
   if (!confirm('¿Estás seguro de que deseas eliminar este usuario de forma permanente?')) return;
-  
+
   try {
     const response = await fetch(`/api/admin/usuarios/${id}`, {
       method: 'DELETE',
@@ -2939,7 +2939,7 @@ async function eliminarUsuario(id) {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Error al eliminar usuario.');
-    
+
     await cargarUsuariosAdmin();
   } catch (error) {
     alert(error.message);
@@ -2953,12 +2953,12 @@ async function cargarFormulariosAdmin() {
       headers: { 'x-user-id': currentUser.id }
     });
     const formularios = await response.json();
-    
+
     adminFormulariosList.innerHTML = '';
     formularios.forEach(form => {
       const areasStr = form.areas_validadoras.map(a => `<span class="badge badge-area-${a}" style="margin-right:5px; margin-bottom:5px; display:inline-block; padding:0.3rem 0.6rem; text-transform:none;">${obtenerNombreAreaSinSiglas(a)}</span>`).join('');
       const camposNombres = form.campos.map(c => c.label).join(', ');
-      
+
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td class="font-bold"><span style="color:var(--accent-color);">[${escaparHTML(form.codigo)}]</span> ${escaparHTML(form.nombre)}</td>
@@ -2980,7 +2980,7 @@ async function cargarFormulariosAdmin() {
 // Eliminar Plantilla de Formulario
 async function eliminarPlantilla(id) {
   if (!confirm('¿Estás seguro de que deseas eliminar esta plantilla de formulario de forma permanente? Se eliminarán también todas las solicitudes asociadas a ella.')) return;
-  
+
   try {
     const response = await fetch(`/api/admin/tipos-solicitud/${id}`, {
       method: 'DELETE',
@@ -2988,7 +2988,7 @@ async function eliminarPlantilla(id) {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Error al eliminar la plantilla de formulario.');
-    
+
     await cargarFormulariosAdmin();
     await cargarTiposSolicitud(); // Actualizar memoria y selector de tipo de solicitud
   } catch (error) {
@@ -3102,7 +3102,7 @@ function actualizarFilaCampoRequerido(select) {
   const firmanteBuilder = row.querySelector('.firmante-options-builder');
   const selectOptsBuilder = row.querySelector('.select-options-builder');
   const fixedGridRowLabelBuilder = row.querySelector('.fixed-grid-row-label-builder');
-  
+
   // Limpiar campos para evitar bloquear el submit por validaciones requeridas ocultas
   const limpiarCols = () => { if (colsBuilder) colsBuilder.querySelector('.grid-columns-list').innerHTML = ''; };
   const limpiarRows = () => { if (rowsBuilder) rowsBuilder.querySelector('.grid-rows-list').innerHTML = ''; };
@@ -3113,7 +3113,7 @@ function actualizarFilaCampoRequerido(select) {
   if (['title', 'subtitle', 'paragraph', 'info_no_pdf'].includes(select.value)) {
     reqLabel.style.display = 'none';
     reqCheckbox.checked = false;
-    
+
     colsBuilder.style.display = 'none';
     if (rowsBuilder) rowsBuilder.style.display = 'none';
     if (firmanteBuilder) firmanteBuilder.style.display = 'none';
@@ -3128,7 +3128,7 @@ function actualizarFilaCampoRequerido(select) {
   } else if (select.value === 'grid' || select.value === 'fixed_grid') {
     reqLabel.style.display = 'none';
     reqCheckbox.checked = false;
-    
+
     colsBuilder.style.display = 'flex';
     if (rowsBuilder) rowsBuilder.style.display = 'none';
     if (firmanteBuilder) firmanteBuilder.style.display = 'none';
@@ -3148,7 +3148,7 @@ function actualizarFilaCampoRequerido(select) {
   } else if (select.value === 'fixed_grid_dynamic_cols' || select.value === 'fixed_grid_fixed_cols') {
     reqLabel.style.display = 'none';
     reqCheckbox.checked = false;
-    
+
     colsBuilder.style.display = 'flex';
     if (rowsBuilder) rowsBuilder.style.display = 'flex';
     if (fixedGridRowLabelBuilder) fixedGridRowLabelBuilder.style.display = 'flex';
@@ -3172,7 +3172,7 @@ function actualizarFilaCampoRequerido(select) {
     }
   } else if (select.value === 'firmante' || select.value === 'firmante_seccion' || select.value === 'firmante_list') {
     reqLabel.style.display = 'flex';
-    
+
     colsBuilder.style.display = 'none';
     if (rowsBuilder) rowsBuilder.style.display = 'none';
     if (firmanteBuilder) firmanteBuilder.style.display = 'flex';
@@ -3185,7 +3185,7 @@ function actualizarFilaCampoRequerido(select) {
     limpiarSelectOpts();
   } else if (select.value === 'select') {
     reqLabel.style.display = 'flex';
-    
+
     colsBuilder.style.display = 'none';
     if (rowsBuilder) rowsBuilder.style.display = 'none';
     if (firmanteBuilder) firmanteBuilder.style.display = 'none';
@@ -3198,7 +3198,7 @@ function actualizarFilaCampoRequerido(select) {
     limpiarFirmante();
   } else {
     reqLabel.style.display = 'flex';
-    
+
     colsBuilder.style.display = 'none';
     if (rowsBuilder) rowsBuilder.style.display = 'none';
     if (firmanteBuilder) firmanteBuilder.style.display = 'none';
@@ -3335,7 +3335,7 @@ function agregarFilaCampoVisual(campoObj = null) {
       agregarFilaVisual(list, r);
     });
   }
-  
+
   // Ocultar/mostrar elementos correspondientes
   const selectEl = row.querySelector('.campo-type');
   actualizarFilaCampoRequerido(selectEl);
@@ -3369,21 +3369,21 @@ function moverCampoVisualAbajo(button) {
 // Abrir Modal para Crear/Editar Plantilla de Formulario
 function abrirModalPlantilla(formObj = null) {
   constructorCamposContainer.innerHTML = '';
-  
+
   if (formObj) {
     document.getElementById('modal-plantilla-titulo').textContent = 'Editar Plantilla de Formulario';
     plantillaIdInput.value = formObj.id;
     pltCodigo.value = formObj.codigo || '';
     pltNombre.value = formObj.nombre;
     pltDescripcion.value = formObj.descripcion;
-    
+
     // Checkboxes
     chkValSeguridad.checked = formObj.areas_validadoras.includes('seguridad');
     chkValGibdd.checked = formObj.areas_validadoras.includes('gibdd');
     chkValGiitrc.checked = formObj.areas_validadoras.includes('giitrc');
     chkValOsi.checked = formObj.areas_validadoras.includes('osi');
     chkValDirector.checked = formObj.areas_validadoras.includes('director');
-    
+
     // Configuración de correo
     pltMailDestinatario.value = formObj.mail_destinatario || '';
     pltMailCc.value = formObj.mail_cc || '';
@@ -3399,14 +3399,14 @@ function abrirModalPlantilla(formObj = null) {
     pltCodigo.value = '';
     pltNombre.value = '';
     pltDescripcion.value = '';
-    
+
     // Checkboxes
     chkValSeguridad.checked = false;
     chkValGibdd.checked = false;
     chkValGiitrc.checked = false;
     chkValOsi.checked = false;
     chkValDirector.checked = false;
-    
+
     // Configuración de correo
     pltMailDestinatario.value = '';
     pltMailCc.value = '';
@@ -3417,26 +3417,26 @@ function abrirModalPlantilla(formObj = null) {
     // Renderizar un campo vacío por defecto
     agregarFilaCampoVisual();
   }
-  
+
   modalPlantilla.classList.remove('hidden');
 }
 
 function copiarPlantilla(formObj) {
   constructorCamposContainer.innerHTML = '';
-  
+
   document.getElementById('modal-plantilla-titulo').textContent = 'Copiar Plantilla de Formulario';
   plantillaIdInput.value = '';
   pltCodigo.value = formObj.codigo ? `${formObj.codigo}_COPIA` : '';
   pltNombre.value = `${formObj.nombre} (Copia)`;
   pltDescripcion.value = formObj.descripcion || '';
-  
+
   // Checkboxes
   chkValSeguridad.checked = formObj.areas_validadoras.includes('seguridad');
   chkValGibdd.checked = formObj.areas_validadoras.includes('gibdd');
   chkValGiitrc.checked = formObj.areas_validadoras.includes('giitrc');
   chkValOsi.checked = formObj.areas_validadoras.includes('osi');
   chkValDirector.checked = formObj.areas_validadoras.includes('director');
-  
+
   // Configuración de correo
   pltMailDestinatario.value = formObj.mail_destinatario || '';
   pltMailCc.value = formObj.mail_cc || '';
@@ -3446,19 +3446,19 @@ function copiarPlantilla(formObj) {
 
   // Renderizar campos dinámicos visuales
   formObj.campos.forEach(c => agregarFilaCampoVisual(c));
-  
+
   modalPlantilla.classList.remove('hidden');
 }
 
 // Procesar Guardar Plantilla de Formulario
 plantillaForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  
+
   const id = plantillaIdInput.value;
   const codigo = pltCodigo.value.trim().toUpperCase();
   const nombre = pltNombre.value;
   const descripcion = pltDescripcion.value;
-  
+
   // Áreas validadoras
   const areas = [];
   if (chkValSeguridad.checked) areas.push('seguridad');
@@ -3466,12 +3466,12 @@ plantillaForm.addEventListener('submit', async (e) => {
   if (chkValGiitrc.checked) areas.push('giitrc');
   if (chkValOsi.checked) areas.push('osi');
   if (chkValDirector.checked) areas.push('director');
-  
+
   if (areas.length === 0) {
     alert('Debes seleccionar al menos una área validadora.');
     return;
   }
-  
+
   // Recolectar campos dinámicos construidos visualmente
   const camposObj = [];
   const filas = constructorCamposContainer.querySelectorAll('.campo-visual-row');
@@ -3479,11 +3479,11 @@ plantillaForm.addEventListener('submit', async (e) => {
     const labelInput = f.querySelector('.campo-label');
     const typeSelect = f.querySelector('.campo-type');
     const requiredCheckbox = f.querySelector('.campo-required');
-    
+
     const label = labelInput.value.trim();
     const type = typeSelect.value;
     const required = requiredCheckbox.checked;
-    
+
     if (label !== '') {
       // Conservar el name original si existe en la base de datos para no romper solicitudes existentes
       const name = f.dataset.name || label
@@ -3491,7 +3491,7 @@ plantillaForm.addEventListener('submit', async (e) => {
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // remover tildes
         .replace(/[^a-z0-9_]+/g, '_') // caracteres especiales a guión bajo
         .replace(/^_+|_+$/g, ''); // quitar guiones bajos al inicio/fin
-      
+
       const campoData = { name, label, type, required };
 
       if (type === 'firmante' || type === 'firmante_seccion' || type === 'firmante_list') {
@@ -3514,10 +3514,10 @@ plantillaForm.addEventListener('submit', async (e) => {
           const colName = colNameInput.value.trim();
           const colType = colTypeSelect.value;
           if (colName !== '') {
-            const colObj = { 
-              name: colName, 
-              type: colType, 
-              required: colRequiredCheckbox ? colRequiredCheckbox.checked : false 
+            const colObj = {
+              name: colName,
+              type: colType,
+              required: colRequiredCheckbox ? colRequiredCheckbox.checked : false
             };
             if (colType === 'firmante' || colType === 'firmante_seccion') {
               colObj.recoger_cedula = colRow.querySelector('.col-recoger-cedula')?.checked || false;
@@ -3559,18 +3559,18 @@ plantillaForm.addEventListener('submit', async (e) => {
     alert('Debes agregar al menos un campo con título al formulario.');
     return;
   }
-  
+
   const mail_destinatario = pltMailDestinatario.value.trim();
   const mail_cc = pltMailCc.value.trim();
   const mail_asunto = pltMailAsunto.value.trim();
   const mail_cuerpo = pltMailCuerpo.value.trim();
   const mail_progreso = pltMailProgreso.checked;
 
-  const payload = { 
-    codigo, 
-    nombre, 
-    descripcion, 
-    areas_validadoras: areas, 
+  const payload = {
+    codigo,
+    nombre,
+    descripcion,
+    areas_validadoras: areas,
     campos: camposObj,
     mail_destinatario: mail_destinatario || null,
     mail_cc: mail_cc || null,
@@ -3578,7 +3578,7 @@ plantillaForm.addEventListener('submit', async (e) => {
     mail_cuerpo: mail_cuerpo || null,
     mail_progreso
   };
-  
+
   try {
     let response;
     if (id) {
@@ -3600,10 +3600,10 @@ plantillaForm.addEventListener('submit', async (e) => {
         body: JSON.stringify(payload)
       });
     }
-    
+
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Error al guardar la plantilla.');
-    
+
     cerrarModal('modal-plantilla');
     await cargarFormulariosAdmin();
     await cargarTiposSolicitud(); // Actualizar memoria
@@ -3636,18 +3636,18 @@ if (btnPreviewPlantilla) {
       const labelInput = f.querySelector('.campo-label');
       const typeSelect = f.querySelector('.campo-type');
       const requiredCheckbox = f.querySelector('.campo-required');
-      
+
       const label = labelInput.value.trim();
       const type = typeSelect.value;
       const required = requiredCheckbox.checked;
-      
+
       if (label !== '') {
         const name = f.dataset.name || label
           .toLowerCase()
           .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // remover tildes
           .replace(/[^a-z0-9_]+/g, '_') // caracteres especiales a guión bajo
           .replace(/^_+|_+$/g, ''); // quitar guiones bajos al inicio/fin
-        
+
         const campoData = { name, label, type, required };
 
         if (type === 'firmante' || type === 'firmante_seccion' || type === 'firmante_list') {
@@ -3670,10 +3670,10 @@ if (btnPreviewPlantilla) {
             const colName = colNameInput.value.trim();
             const colType = colTypeSelect.value;
             if (colName !== '') {
-              const colObj = { 
-                name: colName, 
-                type: colType, 
-                required: colRequiredCheckbox ? colRequiredCheckbox.checked : false 
+              const colObj = {
+                name: colName,
+                type: colType,
+                required: colRequiredCheckbox ? colRequiredCheckbox.checked : false
               };
               if (colType === 'firmante' || colType === 'firmante_seccion') {
                 colObj.recoger_cedula = colRow.querySelector('.col-recoger-cedula')?.checked || false;
@@ -3823,7 +3823,7 @@ async function asignarSolicitud(solicitudId) {
     if (!response.ok) {
       throw new Error(data.error || 'Error al asignar la solicitud.');
     }
-    
+
     // Refrescar los datos locales de la bandeja
     await cargarBandeja();
     // Refrescar el detalle
@@ -3847,7 +3847,7 @@ async function desasignarSolicitud(solicitudId) {
     if (!response.ok) {
       throw new Error(data.error || 'Error al liberar la solicitud.');
     }
-    
+
     // Refrescar los datos locales de la bandeja
     await cargarBandeja();
     // Refrescar el detalle
