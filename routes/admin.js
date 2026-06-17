@@ -12,7 +12,7 @@ const { inicializarAprobaciones } = require('../dbHelper');
 // 1. LISTAR USUARIOS
 router.get('/usuarios', autenticar, esAdmin, async (req, res) => {
   try {
-    const result = await db.query('SELECT id, username, nombre, rol, area, cedula, cargo, correo, direccion_proyecto, firma_documentos FROM usuarios ORDER BY id');
+    const result = await db.query('SELECT id, correo AS username, nombre, rol, area, cedula, cargo, correo, direccion_proyecto, firma_documentos, activo FROM usuarios ORDER BY id');
     res.json(result.rows);
   } catch (error) {
     console.error(error);
@@ -22,17 +22,18 @@ router.get('/usuarios', autenticar, esAdmin, async (req, res) => {
 
 // 2. CREAR USUARIO
 router.post('/usuarios', autenticar, esAdmin, async (req, res) => {
-  const { username, password, nombre, rol, area, cedula, cargo, direccion_proyecto, firma_documentos } = req.body;
+  const { username, password, nombre, rol, area, cedula, cargo, direccion_proyecto, firma_documentos, activo } = req.body;
   if (!username || !password || !nombre || !rol || !cedula || !cargo) {
     return res.status(400).json({ error: 'Datos incompletos para crear el usuario.' });
   }
   try {
     const isOsi = rol === 'tecnico' && area === 'osi';
     const isFirma = isOsi ? (firma_documentos === true || firma_documentos === 'true') : false;
+    const userActivo = activo !== false && activo !== 'false';
 
     const result = await db.query(
-      'INSERT INTO usuarios (username, password, nombre, rol, area, cedula, cargo, correo, direccion_proyecto, firma_documentos) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, username, nombre, rol, area, cedula, cargo, correo, direccion_proyecto, firma_documentos',
-      [username, password, nombre, rol, rol === 'tecnico' ? area : null, cedula, cargo, username, rol === 'solicitante' ? direccion_proyecto : null, isFirma]
+      'INSERT INTO usuarios (password, nombre, rol, area, cedula, cargo, correo, direccion_proyecto, firma_documentos, activo) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, correo AS username, nombre, rol, area, cedula, cargo, correo, direccion_proyecto, firma_documentos, activo',
+      [password, nombre, rol, rol === 'tecnico' ? area : null, cedula, cargo, username, rol === 'solicitante' ? direccion_proyecto : null, isFirma, userActivo]
     );
 
     const newUser = result.rows[0];
@@ -44,29 +45,30 @@ router.post('/usuarios', autenticar, esAdmin, async (req, res) => {
     res.json(newUser);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Error al crear el usuario. El nombre de usuario/correo podría estar duplicado.' });
+    res.status(500).json({ error: 'Error al crear el usuario. El correo electrónico podría estar duplicado.' });
   }
 });
 
 // 3. EDITAR USUARIO
 router.put('/usuarios/:id', autenticar, esAdmin, async (req, res) => {
   const { id } = req.params;
-  const { username, password, nombre, rol, area, cedula, cargo, direccion_proyecto, firma_documentos } = req.body;
+  const { username, password, nombre, rol, area, cedula, cargo, direccion_proyecto, firma_documentos, activo } = req.body;
   if (!username || !nombre || !rol || !cedula || !cargo) {
     return res.status(400).json({ error: 'Datos incompletos para actualizar el usuario.' });
   }
   try {
     const isOsi = rol === 'tecnico' && area === 'osi';
     const isFirma = isOsi ? (firma_documentos === true || firma_documentos === 'true') : false;
+    const userActivo = activo !== false && activo !== 'false';
 
     let query;
     let params;
     if (password && password.trim() !== '') {
-      query = 'UPDATE usuarios SET username = $1, password = $2, nombre = $3, rol = $4, area = $5, cedula = $6, cargo = $7, correo = $8, direccion_proyecto = $9, firma_documentos = $10 WHERE id = $11 RETURNING id, username, nombre, rol, area, cedula, cargo, correo, direccion_proyecto, firma_documentos';
-      params = [username, password, nombre, rol, rol === 'tecnico' ? area : null, cedula, cargo, username, rol === 'solicitante' ? direccion_proyecto : null, isFirma, id];
+      query = 'UPDATE usuarios SET password = $1, nombre = $2, rol = $3, area = $4, cedula = $5, cargo = $6, correo = $7, direccion_proyecto = $8, firma_documentos = $9, activo = $10 WHERE id = $11 RETURNING id, correo AS username, nombre, rol, area, cedula, cargo, correo, direccion_proyecto, firma_documentos, activo';
+      params = [password, nombre, rol, rol === 'tecnico' ? area : null, cedula, cargo, username, rol === 'solicitante' ? direccion_proyecto : null, isFirma, userActivo, id];
     } else {
-      query = 'UPDATE usuarios SET username = $1, nombre = $2, rol = $3, area = $4, cedula = $5, cargo = $6, correo = $7, direccion_proyecto = $8, firma_documentos = $9 WHERE id = $10 RETURNING id, username, nombre, rol, area, cedula, cargo, correo, direccion_proyecto, firma_documentos';
-      params = [username, nombre, rol, rol === 'tecnico' ? area : null, cedula, cargo, username, rol === 'solicitante' ? direccion_proyecto : null, isFirma, id];
+      query = 'UPDATE usuarios SET nombre = $1, rol = $2, area = $3, cedula = $4, cargo = $5, correo = $6, direccion_proyecto = $7, firma_documentos = $8, activo = $9 WHERE id = $10 RETURNING id, correo AS username, nombre, rol, area, cedula, cargo, correo, direccion_proyecto, firma_documentos, activo';
+      params = [nombre, rol, rol === 'tecnico' ? area : null, cedula, cargo, username, rol === 'solicitante' ? direccion_proyecto : null, isFirma, userActivo, id];
     }
     const result = await db.query(query, params);
     if (result.rows.length === 0) {
@@ -86,18 +88,56 @@ router.put('/usuarios/:id', autenticar, esAdmin, async (req, res) => {
   }
 });
 
-// 4. ELIMINAR USUARIO
+// 4. ELIMINAR (DESACTIVAR) USUARIO Y LIMPIAR SOLICITUDES NO APROBADAS
 router.delete('/usuarios/:id', autenticar, esAdmin, async (req, res) => {
   const { id } = req.params;
+  const client = await db.pool.connect();
   try {
-    const result = await db.query('DELETE FROM usuarios WHERE id = $1 RETURNING id', [id]);
+    await client.query('BEGIN');
+
+    // 1. Desactivar usuario
+    const result = await client.query(
+      'UPDATE usuarios SET activo = FALSE WHERE id = $1 RETURNING id',
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Usuario no encontrado.' });
+    }
+
+    // 2. Eliminar solicitudes no aprobadas del usuario (borrador, en_revision, observado)
+    await client.query(
+      "DELETE FROM solicitudes WHERE solicitante_id = $1 AND estado != 'aprobado'",
+      [id]
+    );
+
+    await client.query('COMMIT');
+    res.json({ message: 'Usuario desactivado con éxito y sus solicitudes no aprobadas fueron depuradas.' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error(error);
+    res.status(500).json({ error: 'Error al desactivar el usuario.' });
+  } finally {
+    client.release();
+  }
+});
+
+// 4.b ACTIVAR USUARIO
+router.post('/usuarios/:id/activar', autenticar, esAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await db.query(
+      'UPDATE usuarios SET activo = TRUE WHERE id = $1 RETURNING id',
+      [id]
+    );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Usuario no encontrado.' });
     }
-    res.json({ message: 'Usuario eliminado con éxito.' });
+    res.json({ message: 'Usuario activado con éxito.' });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Error al eliminar el usuario.' });
+    res.status(500).json({ error: 'Error al activar el usuario.' });
   }
 });
 

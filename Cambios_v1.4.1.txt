@@ -1,0 +1,55 @@
+======================================================================
+SISTEMA DE VALIDACION TECNICA (SVT) - NOTAS DE CAMBIOS VERSION 1.4.1
+======================================================================
+
+Fecha: 17 de Junio, 2026
+Autor: Antigravity AI & David Paredes
+Version: 1.4.1 (Reorganización de BD, Desactivación Lógica, Reactivación y Buscador)
+
+----------------------------------------------------------------------
+DESCRIPCION GENERAL
+----------------------------------------------------------------------
+Esta versión implementa la reorganización estructural de la base de datos para garantizar la integridad referencial histórica, y añade soporte para la desactivación y reactivación lógica de usuarios, junto con un buscador en tiempo real para el panel de administración.
+
+1. **Reorganización y Normalización de BD (v1.4.0):**
+   - Tabla maestra de áreas (`areas`) para centralizar la validación de dependencias.
+   - Eliminación física de la columna redundante `username` en la tabla `usuarios` (mapeada a `correo AS username` para retrocompatibilidad).
+   - Cambio a `ON DELETE RESTRICT` en la clave foránea de solicitudes para evitar la pérdida accidental de historial.
+   - Creación de índices secundarios para optimizar el rendimiento de las consultas y búsquedas.
+
+2. **Desactivación Lógica, Reactivación y Limpieza (v1.4.1):**
+   - Incorporación del campo `activo` (booleano) a la tabla `usuarios`.
+   - Modificación del inicio de sesión y el middleware de autenticación para bloquear el acceso a usuarios inactivos.
+   - Refactorización de la eliminación en administración a "Desactivación Lógica" con borrado automático de borradores y solicitudes pendientes, conservando las aprobadas.
+   - Nueva funcionalidad para reactivar cuentas previamente desactivadas (evitando duplicación de C.I./correo).
+   - Buscador de usuarios en tiempo real en la administración (nombre, correo, cédula o cargo).
+
+----------------------------------------------------------------------
+CAMBIOS REALIZADOS
+----------------------------------------------------------------------
+
+1. Base de Datos (init_db.sql & dbMigrate.js):
+   - Adición de la columna `activo BOOLEAN NOT NULL DEFAULT TRUE` a la definición y migración de la tabla `usuarios`.
+   - Creación de índices y llaves foráneas correspondientes.
+
+2. Backend - Autenticación y API (routes/usuarios.js & middlewares/auth.js):
+   - `POST /login`: Retorna error 400 si `activo === false`.
+   - Middleware `autenticar`: Deniega peticiones y retorna 401 si `req.usuario.activo === false`.
+
+3. Backend - Admin API (routes/admin.js):
+   - `DELETE /usuarios/:id`: Transacción que marca `activo = FALSE` y ejecuta `DELETE FROM solicitudes WHERE solicitante_id = $1 AND estado != 'aprobado'`.
+   - `POST /usuarios/:id/activar`: Nuevo endpoint para volver a habilitar (`activo = TRUE`) a un usuario desactivado.
+
+4. Frontend (public/index.html & public/app.js):
+   - Campo de búsqueda `#buscador-usuarios` en la cabecera de la lista de administración de usuarios.
+   - Modificación de la UI para agrupar usuarios en memoria (`todosLosUsuariosAdmin`) y realizar filtrado en tiempo real con `filtrarUsuariosAdmin()`.
+   - Adición del botón verde **Activar** para usuarios inactivos y botón rojo **Desactivar** para usuarios activos.
+   - Inserción del badge **INACTIVO** al lado de los nombres de los usuarios deshabilitados.
+   - Inserción de checkbox `#usr-activo` en el modal de usuario para control manual de estado.
+
+----------------------------------------------------------------------
+COMO DESPLEGAR / ACTUALIZAR
+----------------------------------------------------------------------
+1. Aplicar la versión '1.4.1' mediante git.
+2. Iniciar el servidor mediante 'npm run dev' o 'npm start'. Las migraciones de base de datos se aplicarán automáticamente.
+======================================================================

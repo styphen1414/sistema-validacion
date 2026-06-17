@@ -5,6 +5,7 @@ let todasLasSolicitudes = [];
 let filtroEstadoActual = 'todos';
 let activeSolicitudId = null;
 let autoRefreshTimeout = null;
+let todosLosUsuariosAdmin = [];
 
 // Paginación y búsqueda de solicitudes
 let paginaActual = 1;
@@ -2669,126 +2670,156 @@ async function cargarUsuariosAdmin() {
       headers: { 'x-user-id': currentUser.id }
     });
     if (!response.ok) throw new Error('Error al cargar la lista de usuarios.');
-    const usuarios = await response.json();
-
-    adminUsuariosSegmentedContainer.innerHTML = '';
-
-    if (usuarios.length === 0) {
-      adminUsuariosSegmentedContainer.innerHTML = '<div class="alert alert-danger text-center">No hay usuarios registrados en el sistema.</div>';
-      return;
-    }
-
-    const segmentos = [
-      {
-        nombre: 'Administradores',
-        filtro: usr => usr.rol === 'admin',
-        icon: '⚙️'
-      },
-      {
-        nombre: 'Director DTIC MSP',
-        filtro: usr => usr.rol === 'tecnico' && usr.area === 'director',
-        icon: '👔'
-      },
-      {
-        nombre: 'Solicitantes (Usuarios del Sistema)',
-        filtro: usr => usr.rol === 'solicitante',
-        icon: '👤'
-      },
-      {
-        nombre: 'Gestión Interna de Seguridad Informática y Calidad de Software - (GISICS)',
-        filtro: usr => usr.rol === 'tecnico' && usr.area === 'seguridad',
-        icon: '🔒'
-      },
-      {
-        nombre: 'Gestión Interna de Base de Datos - (GIBD)',
-        filtro: usr => usr.rol === 'tecnico' && usr.area === 'gibdd',
-        icon: '💾'
-      },
-      {
-        nombre: 'Gestión Interna de Infraestructura - (GIITRC)',
-        filtro: usr => usr.rol === 'tecnico' && usr.area === 'giitrc',
-        icon: '🌐'
-      },
-      {
-        nombre: 'Oficial de Seguridad de la Información - (OSI)',
-        filtro: usr => usr.rol === 'tecnico' && usr.area === 'osi',
-        icon: '👁️'
-      }
-    ];
-
-    segmentos.forEach(seg => {
-      const filtered = usuarios.filter(seg.filtro);
-
-      const segmentDiv = document.createElement('div');
-      segmentDiv.className = 'admin-segment-card collapsed'; // Iniciar colapsado para no scrollear demasiado
-      segmentDiv.style.marginBottom = '1.5rem';
-
-      const header = document.createElement('div');
-      header.className = 'admin-segment-header';
-      header.innerHTML = `
-        <h3>
-          <span>${seg.icon}</span> 
-          <strong>${seg.nombre}</strong> 
-          <span class="badge badge-solicitante" style="margin-left:auto; font-size:0.7rem; text-transform:none; font-weight:normal;">${filtered.length} usuario(s)</span>
-          <span class="admin-segment-toggle-icon">▼</span>
-        </h3>
-      `;
-      header.addEventListener('click', () => {
-        segmentDiv.classList.toggle('collapsed');
-      });
-      segmentDiv.appendChild(header);
-
-      const tableContainer = document.createElement('div');
-      tableContainer.className = 'table-container';
-
-      if (filtered.length === 0) {
-        tableContainer.innerHTML = `<div style="padding:1rem; text-align:center; color:var(--text-secondary); font-size:0.8rem;">No hay usuarios asignados a este segmento.</div>`;
-      } else {
-        const table = document.createElement('table');
-        table.innerHTML = `
-          <thead>
-            <tr>
-              <th>Nombre Completo</th>
-              <th>Cédula / Cargo</th>
-              <th>Correo (Login)</th>
-              <th>Rol</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        `;
-        const tbody = table.querySelector('tbody');
-        filtered.forEach(usr => {
-          const tr = document.createElement('tr');
-          let detailsHtml = `<strong>C.I.:</strong> ${escaparHTML(usr.cedula || 'N/A')}<br><small style="color:var(--text-secondary)">${escaparHTML(usr.cargo || 'N/A')}</small>`;
-          if (usr.rol === 'solicitante' && usr.direccion_proyecto) {
-            detailsHtml += `<br><small style="color:var(--accent-color); font-weight: 500;">Dir/Proyecto: ${escaparHTML(usr.direccion_proyecto)}</small>`;
-          }
-          const cedulaCargo = detailsHtml;
-
-          let nombreHtml = escaparHTML(usr.nombre);
-
-          tr.innerHTML = `
-            <td class="font-bold">${nombreHtml}</td>
-            <td>${cedulaCargo}</td>
-            <td><code>${escaparHTML(usr.username)}</code></td>
-            <td><span class="badge badge-${usr.rol}">${usr.rol}</span></td>
-            <td>
-              <button class="btn btn-outline btn-sm" onclick="abrirModalUsuario(${JSON.stringify(usr).replace(/"/g, '&quot;')})">✏️ Editar</button>
-              <button class="btn btn-danger btn-sm" onclick="eliminarUsuario(${usr.id})">🗑️ Borrar</button>
-            </td>
-          `;
-          tbody.appendChild(tr);
-        });
-        tableContainer.appendChild(table);
-      }
-
-      segmentDiv.appendChild(tableContainer);
-      adminUsuariosSegmentedContainer.appendChild(segmentDiv);
-    });
+    todosLosUsuariosAdmin = await response.json();
+    filtrarUsuariosAdmin();
   } catch (error) {
     alert(error.message);
   }
+}
+
+// Filtrar usuarios en memoria
+function filtrarUsuariosAdmin() {
+  const query = document.getElementById('buscador-usuarios') ? document.getElementById('buscador-usuarios').value.toLowerCase().trim() : '';
+  let usuariosFiltrados = todosLosUsuariosAdmin;
+
+  if (query) {
+    usuariosFiltrados = todosLosUsuariosAdmin.filter(usr => {
+      const nombre = (usr.nombre || '').toLowerCase();
+      const correo = (usr.correo || '').toLowerCase();
+      const cedula = (usr.cedula || '').toLowerCase();
+      const cargo = (usr.cargo || '').toLowerCase();
+      return nombre.includes(query) || correo.includes(query) || cedula.includes(query) || cargo.includes(query);
+    });
+  }
+
+  renderUsuariosAdmin(usuariosFiltrados);
+}
+window.filtrarUsuariosAdmin = filtrarUsuariosAdmin;
+
+// Pintar listado de usuarios agrupados por rol y área
+function renderUsuariosAdmin(usuarios) {
+  adminUsuariosSegmentedContainer.innerHTML = '';
+
+  if (usuarios.length === 0) {
+    adminUsuariosSegmentedContainer.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-secondary); font-size: 0.95rem; font-weight: 500; background-color: var(--bg-input-secondary); border-radius: var(--radius-md); border: 1px dashed var(--border-color);">No se encontraron usuarios que coincidan con la búsqueda.</div>';
+    return;
+  }
+
+  const segmentos = [
+    {
+      nombre: 'Administradores',
+      filtro: usr => usr.rol === 'admin',
+      icon: '⚙️'
+    },
+    {
+      nombre: 'Director DTIC MSP',
+      filtro: usr => usr.rol === 'tecnico' && usr.area === 'director',
+      icon: '👔'
+    },
+    {
+      nombre: 'Solicitantes (Usuarios del Sistema)',
+      filtro: usr => usr.rol === 'solicitante',
+      icon: '👤'
+    },
+    {
+      nombre: 'Gestión Interna de Seguridad Informática y Calidad de Software - (GISICS)',
+      filtro: usr => usr.rol === 'tecnico' && usr.area === 'seguridad',
+      icon: '🔒'
+    },
+    {
+      nombre: 'Gestión Interna de Base de Datos - (GIBD)',
+      filtro: usr => usr.rol === 'tecnico' && usr.area === 'gibdd',
+      icon: '💾'
+    },
+    {
+      nombre: 'Gestión Interna de Infraestructura - (GIITRC)',
+      filtro: usr => usr.rol === 'tecnico' && usr.area === 'giitrc',
+      icon: '🌐'
+    },
+    {
+      nombre: 'Oficial de Seguridad de la Información - (OSI)',
+      filtro: usr => usr.rol === 'tecnico' && usr.area === 'osi',
+      icon: '👁️'
+    }
+  ];
+
+  segmentos.forEach(seg => {
+    const filtered = usuarios.filter(seg.filtro);
+
+    const segmentDiv = document.createElement('div');
+    segmentDiv.className = 'admin-segment-card collapsed'; // Iniciar colapsado para no scrollear demasiado
+    segmentDiv.style.marginBottom = '1.5rem';
+
+    const header = document.createElement('div');
+    header.className = 'admin-segment-header';
+    header.innerHTML = `
+      <h3>
+        <span>${seg.icon}</span> 
+        <strong>${seg.nombre}</strong> 
+        <span class="badge badge-solicitante" style="margin-left:auto; font-size:0.7rem; text-transform:none; font-weight:normal;">${filtered.length} usuario(s)</span>
+        <span class="admin-segment-toggle-icon">▼</span>
+      </h3>
+    `;
+    header.addEventListener('click', () => {
+      segmentDiv.classList.toggle('collapsed');
+    });
+    segmentDiv.appendChild(header);
+
+    const tableContainer = document.createElement('div');
+    tableContainer.className = 'table-container';
+
+    if (filtered.length === 0) {
+      tableContainer.innerHTML = `<div style="padding:1rem; text-align:center; color:var(--text-secondary); font-size:0.8rem;">No hay usuarios asignados a este segmento.</div>`;
+    } else {
+      const table = document.createElement('table');
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th>Nombre Completo</th>
+            <th>Cédula / Cargo</th>
+            <th>Correo (Login)</th>
+            <th>Rol</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+      const tbody = table.querySelector('tbody');
+      filtered.forEach(usr => {
+        const tr = document.createElement('tr');
+        let detailsHtml = `<strong>C.I.:</strong> ${escaparHTML(usr.cedula || 'N/A')}<br><small style="color:var(--text-secondary)">${escaparHTML(usr.cargo || 'N/A')}</small>`;
+        if (usr.rol === 'solicitante' && usr.direccion_proyecto) {
+          detailsHtml += `<br><small style="color:var(--accent-color); font-weight: 500;">Dir/Proyecto: ${escaparHTML(usr.direccion_proyecto)}</small>`;
+        }
+        const cedulaCargo = detailsHtml;
+
+        let nombreHtml = escaparHTML(usr.nombre);
+        if (usr.activo === false) {
+          nombreHtml += ` <span class="badge badge-danger" style="margin-left: 5px; font-size: 0.65rem;">INACTIVO</span>`;
+        }
+
+        const actionButton = usr.activo !== false
+          ? `<button class="btn btn-danger btn-sm" onclick="desactivarUsuario(${usr.id})">🚫 Desactivar</button>`
+          : `<button class="btn btn-success btn-sm" onclick="activarUsuario(${usr.id})">✅ Activar</button>`;
+
+        tr.innerHTML = `
+          <td class="font-bold">${nombreHtml}</td>
+          <td>${cedulaCargo}</td>
+          <td><code>${escaparHTML(usr.username)}</code></td>
+          <td><span class="badge badge-${usr.rol}">${usr.rol}</span></td>
+          <td>
+            <button class="btn btn-outline btn-sm" onclick="abrirModalUsuario(${JSON.stringify(usr).replace(/"/g, '&quot;')})">✏️ Editar</button>
+            ${actionButton}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      tableContainer.appendChild(table);
+    }
+
+    segmentDiv.appendChild(tableContainer);
+    adminUsuariosSegmentedContainer.appendChild(segmentDiv);
+  });
 }
 
 // Abrir Modal para Crear/Editar Usuario
@@ -2807,6 +2838,11 @@ function abrirModalUsuario(user = null) {
     usrPasswordHelp.textContent = 'Deja en blanco para no modificar la contraseña.';
     usrDireccionProyecto.value = user.direccion_proyecto || '';
 
+    const checkboxActivo = document.getElementById('usr-activo');
+    if (checkboxActivo) {
+      checkboxActivo.checked = user.activo !== false;
+    }
+
     if (user.rol === 'tecnico') {
       usrArea.value = user.area || '';
     }
@@ -2819,6 +2855,12 @@ function abrirModalUsuario(user = null) {
     usuarioIdInput.value = '';
     usrPassword.required = true;
     usrPasswordHelp.textContent = 'Contraseña requerida para nuevos usuarios.';
+    
+    const checkboxActivo = document.getElementById('usr-activo');
+    if (checkboxActivo) {
+      checkboxActivo.checked = true;
+    }
+    
     cambiarSelectorRol();
   }
 
@@ -2835,6 +2877,11 @@ function formUsuarioReset() {
   usrDireccionProyecto.value = '';
   usrFirmaDocumentos.checked = false;
   usrFirmaGroup.classList.add('hidden');
+
+  const checkboxActivo = document.getElementById('usr-activo');
+  if (checkboxActivo) {
+    checkboxActivo.checked = true;
+  }
 }
 
 // Cambiar visibilidad de campos de área técnica según rol
@@ -2877,6 +2924,8 @@ usuarioForm.addEventListener('submit', async (e) => {
   const rol = usrRol.value;
   const area = usrArea.value;
   const direccion_proyecto = usrDireccionProyecto.value;
+  const checkboxActivo = document.getElementById('usr-activo');
+  const activo = checkboxActivo ? checkboxActivo.checked : true;
 
   const payload = {
     nombre,
@@ -2886,7 +2935,8 @@ usuarioForm.addEventListener('submit', async (e) => {
     rol,
     area: rol === 'tecnico' ? area : null,
     direccion_proyecto: rol === 'solicitante' ? direccion_proyecto : null,
-    firma_documentos: (rol === 'tecnico' && area === 'osi') ? usrFirmaDocumentos.checked : false
+    firma_documentos: (rol === 'tecnico' && area === 'osi') ? usrFirmaDocumentos.checked : false,
+    activo
   };
   if (password && password.trim() !== '') {
     payload.password = password;
@@ -2924,13 +2974,13 @@ usuarioForm.addEventListener('submit', async (e) => {
   }
 });
 
-// Eliminar Usuario
-async function eliminarUsuario(id) {
+// Desactivar Usuario
+async function desactivarUsuario(id) {
   if (id === currentUser.id) {
-    alert('No puedes eliminar tu propio usuario activo.');
+    alert('No puedes desactivar tu propio usuario activo.');
     return;
   }
-  if (!confirm('¿Estás seguro de que deseas eliminar este usuario de forma permanente?')) return;
+  if (!confirm('¿Estás seguro de que deseas desactivar este usuario? Ya no podrá ingresar al sistema, sus borradores y solicitudes pendientes serán eliminadas, pero se conservarán sus solicitudes aprobadas.')) return;
 
   try {
     const response = await fetch(`/api/admin/usuarios/${id}`, {
@@ -2938,7 +2988,23 @@ async function eliminarUsuario(id) {
       headers: { 'x-user-id': currentUser.id }
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Error al eliminar usuario.');
+    if (!response.ok) throw new Error(data.error || 'Error al desactivar usuario.');
+
+    await cargarUsuariosAdmin();
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+// Activar Usuario
+async function activarUsuario(id) {
+  try {
+    const response = await fetch(`/api/admin/usuarios/${id}/activar`, {
+      method: 'POST',
+      headers: { 'x-user-id': currentUser.id }
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error al activar usuario.');
 
     await cargarUsuariosAdmin();
   } catch (error) {

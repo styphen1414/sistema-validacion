@@ -12,6 +12,9 @@ async function autenticar(req, res, next) {
       return res.status(401).json({ error: 'Usuario no encontrado.' });
     }
     req.usuario = result.rows[0];
+    if (req.usuario.activo === false) {
+      return res.status(401).json({ error: 'Tu usuario ha sido desactivado. Acceso denegado.' });
+    }
     next();
   } catch (error) {
     res.status(500).json({ error: 'Error de autenticación en el servidor.' });

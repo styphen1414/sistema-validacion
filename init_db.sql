@@ -6,19 +6,36 @@ DROP TABLE IF EXISTS aprobaciones CASCADE;
 DROP TABLE IF EXISTS solicitudes CASCADE;
 DROP TABLE IF EXISTS tipos_solicitud CASCADE;
 DROP TABLE IF EXISTS usuarios CASCADE;
+DROP TABLE IF EXISTS areas CASCADE;
+
+-- 0. Tabla de Áreas Técnicas y Actores
+CREATE TABLE areas (
+    id VARCHAR(20) PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL
+);
+
+-- Inserción de Áreas iniciales
+INSERT INTO areas (id, nombre) VALUES
+('seguridad', 'Gestión Interna de Seguridad Informática y Calidad de Software'),
+('gibdd', 'Gestión Interna de Base de Datos'),
+('giitrc', 'Gestión Interna de Infraestructura'),
+('osi', 'Oficial de Seguridad de la Información'),
+('director', 'Director DTIC MSP'),
+('solicitante', 'Solicitante'),
+('admin', 'Administrador');
 
 -- 1. Tabla de Usuarios
 CREATE TABLE usuarios (
     id SERIAL PRIMARY KEY,
-    username VARCHAR(100) UNIQUE NOT NULL, -- Correo institucional (Usuario para login)
     password VARCHAR(255) NOT NULL, -- Contraseña simple (texto plano para facilidad del usuario)
     nombre VARCHAR(100) NOT NULL,
     rol VARCHAR(20) NOT NULL CHECK (rol IN ('solicitante', 'tecnico', 'admin')),
-    area VARCHAR(20) NULL CHECK (area IN ('seguridad', 'gibdd', 'giitrc', 'osi', 'director')),
+    area VARCHAR(20) NULL REFERENCES areas(id) ON DELETE SET NULL,
     cedula VARCHAR(20) NOT NULL,
     cargo VARCHAR(100) NOT NULL,
     direccion_proyecto VARCHAR(150) NULL,
-    correo VARCHAR(100) UNIQUE NOT NULL
+    correo VARCHAR(100) UNIQUE NOT NULL,
+    activo BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 -- 2. Tabla de Tipos de Solicitud (Formularios Dinámicos)
@@ -39,7 +56,7 @@ CREATE TABLE tipos_solicitud (
 -- 3. Tabla de Solicitudes
 CREATE TABLE solicitudes (
     id SERIAL PRIMARY KEY,
-    solicitante_id INT REFERENCES usuarios(id) ON DELETE CASCADE,
+    solicitante_id INT REFERENCES usuarios(id) ON DELETE RESTRICT,
     tipo_solicitud_id INT REFERENCES tipos_solicitud(id) ON DELETE CASCADE,
     datos JSONB NOT NULL, -- Los valores ingresados por el solicitante
     estado VARCHAR(20) NOT NULL DEFAULT 'borrador' CHECK (estado IN ('borrador', 'en_revision', 'aprobado', 'observado')),
@@ -51,7 +68,7 @@ CREATE TABLE solicitudes (
 CREATE TABLE aprobaciones (
     id SERIAL PRIMARY KEY,
     solicitud_id INT REFERENCES solicitudes(id) ON DELETE CASCADE,
-    area VARCHAR(20) NOT NULL CHECK (area IN ('seguridad', 'gibdd', 'giitrc', 'osi', 'director')),
+    area VARCHAR(20) NOT NULL REFERENCES areas(id) ON DELETE RESTRICT,
     estado VARCHAR(20) NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'aprobado')),
     tecnico_id INT REFERENCES usuarios(id) ON DELETE SET NULL,
     fecha TIMESTAMP NULL,
@@ -63,7 +80,7 @@ CREATE TABLE aprobaciones (
 CREATE TABLE observaciones (
     id SERIAL PRIMARY KEY,
     solicitud_id INT REFERENCES solicitudes(id) ON DELETE CASCADE,
-    area VARCHAR(20) NOT NULL CHECK (area IN ('seguridad', 'gibdd', 'giitrc', 'solicitante', 'admin', 'osi', 'director')),
+    area VARCHAR(20) NOT NULL REFERENCES areas(id) ON DELETE CASCADE,
     autor_id INT REFERENCES usuarios(id) ON DELETE SET NULL,
     texto TEXT NOT NULL,
     fecha TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -72,14 +89,14 @@ CREATE TABLE observaciones (
 -- INSERCIÓN DE DATOS INICIALES (SEMILLAS)
 
 -- Usuarios
-INSERT INTO usuarios (username, password, nombre, rol, area, cedula, cargo, correo) VALUES
-('solicitante1@msp.gob.ec', 'solicitante123', 'Juan Pérez (Solicitante)', 'solicitante', NULL, '1712345678', 'Analista de Servicios', 'solicitante1@msp.gob.ec'),
-('seguridad1@msp.gob.ec', 'seguridad123', 'Carlos Segura (Seguridad)', 'tecnico', 'seguridad', '1723456789', 'Especialista de Seguridad', 'seguridad1@msp.gob.ec'),
-('gibdd1@msp.gob.ec', 'gibdd123', 'Ana Datos (Base de Datos)', 'tecnico', 'gibdd', '1734567890', 'Administrador de Base de Datos', 'gibdd1@msp.gob.ec'),
-('giitrc1@msp.gob.ec', 'giitrc123', 'Luis Redes (Infraestructura)', 'tecnico', 'giitrc', '1745678901', 'Especialista en Telecomunicaciones', 'giitrc1@msp.gob.ec'),
-('osi1@msp.gob.ec', 'osi123', 'Oficial de Seguridad OSI', 'tecnico', 'osi', '1765432109', 'Oficial de Seguridad de la Información', 'osi1@msp.gob.ec'),
-('director1@msp.gob.ec', 'director123', 'Director DTIC MSP', 'tecnico', 'director', '1798765432', 'Director de Tecnologías de la Información y Comunicación', 'director1@msp.gob.ec'),
-('admin1@msp.gob.ec', 'admin123', 'Admin General (Administrador)', 'admin', NULL, '1756789012', 'Director de Tecnologías', 'admin1@msp.gob.ec');
+INSERT INTO usuarios (password, nombre, rol, area, cedula, cargo, correo) VALUES
+('solicitante123', 'Juan Pérez (Solicitante)', 'solicitante', NULL, '1712345678', 'Analista de Servicios', 'solicitante1@msp.gob.ec'),
+('seguridad123', 'Carlos Segura (Seguridad)', 'tecnico', 'seguridad', '1723456789', 'Especialista de Seguridad', 'seguridad1@msp.gob.ec'),
+('gibdd123', 'Ana Datos (Base de Datos)', 'tecnico', 'gibdd', '1734567890', 'Administrador de Base de Datos', 'gibdd1@msp.gob.ec'),
+('giitrc123', 'Luis Redes (Infraestructura)', 'tecnico', 'giitrc', '1745678901', 'Especialista en Telecomunicaciones', 'giitrc1@msp.gob.ec'),
+('osi123', 'Oficial de Seguridad OSI', 'tecnico', 'osi', '1765432109', 'Oficial de Seguridad de la Información', 'osi1@msp.gob.ec'),
+('director123', 'Director DTIC MSP', 'tecnico', 'director', '1798765432', 'Director de Tecnologías de la Información y Comunicación', 'director1@msp.gob.ec'),
+('admin123', 'Admin General (Administrador)', 'admin', NULL, '1756789012', 'Director de Tecnologías', 'admin1@msp.gob.ec');
 
 -- Tipos de Solicitud (Formularios Dinámicos)
 INSERT INTO tipos_solicitud (codigo, nombre, descripcion, campos, areas_validadoras, mail_destinatario, mail_cc, mail_asunto, mail_cuerpo, mail_progreso)
