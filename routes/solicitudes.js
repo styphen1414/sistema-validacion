@@ -4,6 +4,7 @@ const db = require('../db');
 const mailer = require('../mailer');
 const pdfGenerator = require('../pdfGenerator');
 const { autenticar } = require('../middlewares/auth');
+const { inicializarAprobaciones } = require('../dbHelper');
 
 function validarDatos(campos, datos) {
   if (!campos || !Array.isArray(campos) || !datos) return null;
@@ -119,35 +120,6 @@ function validarDatos(campos, datos) {
   return null;
 }
 
-async function inicializarAprobaciones(solicitudId, areas, client = db) {
-  try {
-    const dirUserRes = await client.query("SELECT id FROM usuarios WHERE area = 'director' AND rol = 'tecnico' LIMIT 1");
-    const dirUserId = dirUserRes.rows.length > 0 ? dirUserRes.rows[0].id : null;
-
-    for (const area of areas) {
-      if (area === 'director') {
-        await client.query(
-          `INSERT INTO aprobaciones (solicitud_id, area, estado, tecnico_id, fecha)
-           VALUES ($1, $2, 'aprobado', $3, CURRENT_TIMESTAMP)
-           ON CONFLICT (solicitud_id, area)
-           DO UPDATE SET estado = 'aprobado', tecnico_id = $3, fecha = CURRENT_TIMESTAMP`,
-          [solicitudId, area, dirUserId]
-        );
-      } else {
-        await client.query(
-          `INSERT INTO aprobaciones (solicitud_id, area, estado, tecnico_id, fecha)
-           VALUES ($1, $2, 'pendiente', NULL, NULL)
-           ON CONFLICT (solicitud_id, area)
-           DO UPDATE SET estado = 'pendiente', tecnico_id = NULL, fecha = NULL`,
-          [solicitudId, area]
-        );
-      }
-    }
-  } catch (error) {
-    console.error('Error al inicializar/resetear aprobaciones:', error);
-    throw error;
-  }
-}
 
 // 3. CREAR NUEVA SOLICITUD
 router.post('/', autenticar, async (req, res) => {

@@ -4,7 +4,7 @@ let tiposSolicitud = [];
 let todasLasSolicitudes = [];
 let filtroEstadoActual = 'todos';
 let activeSolicitudId = null;
-let autoRefreshInterval = null;
+let autoRefreshTimeout = null;
 
 // Paginación y búsqueda de solicitudes
 let paginaActual = 1;
@@ -3786,26 +3786,38 @@ window.debouncedBuscar = debouncedBuscar;
 // AUTO-ACTUALIZACIÓN PERIÓDICA (POLLING)
 function iniciarAutoRefresh() {
   detenerAutoRefresh(); // Evitar duplicaciones
-  autoRefreshInterval = setInterval(async () => {
+  
+  async function tick() {
     if (!currentUser) {
       detenerAutoRefresh();
       return;
     }
-    // Refrescar bandeja si la vista de solicitudes está visible
-    if (!solicitudesView.classList.contains('hidden')) {
-      await cargarBandeja();
+    try {
+      // Refrescar bandeja si la vista de solicitudes está visible
+      if (!solicitudesView.classList.contains('hidden')) {
+        await cargarBandeja();
+      }
+      // Refrescar detalle si el modal está abierto y hay un ID activo
+      if (!modalDetalle.classList.contains('hidden') && activeSolicitudId !== null) {
+        await verDetalle(activeSolicitudId, true);
+      }
+    } catch (e) {
+      console.error('Error durante el auto-refresh:', e);
+    } finally {
+      // Programar la siguiente ejecución solo si el usuario sigue conectado
+      if (currentUser) {
+        autoRefreshTimeout = setTimeout(tick, 10000);
+      }
     }
-    // Refrescar detalle si el modal está abierto y hay un ID activo
-    if (!modalDetalle.classList.contains('hidden') && activeSolicitudId !== null) {
-      await verDetalle(activeSolicitudId, true);
-    }
-  }, 10000); // Cada 10 segundos
+  }
+
+  autoRefreshTimeout = setTimeout(tick, 10000);
 }
 
 function detenerAutoRefresh() {
-  if (autoRefreshInterval) {
-    clearInterval(autoRefreshInterval);
-    autoRefreshInterval = null;
+  if (autoRefreshTimeout) {
+    clearTimeout(autoRefreshTimeout);
+    autoRefreshTimeout = null;
   }
 }
 

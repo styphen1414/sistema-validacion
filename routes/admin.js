@@ -5,40 +5,9 @@ const mailer = require('../mailer');
 const pdfGenerator = require('../pdfGenerator');
 const { autenticar, esAdmin } = require('../middlewares/auth');
 const nodemailer = require('nodemailer');
+const { inicializarAprobaciones } = require('../dbHelper');
 
-// Importamos inicializarAprobaciones para cuando se actualicen áreas validadoras
-// Como inicializarAprobaciones pertenece a la lógica de solicitudes, lo importaremos desde su módulo correspondiente o lo definiremos localmente
-// Para evitar dependencias cruzadas complejas, podemos definir inicializarAprobaciones localmente o importarlo si está en otro archivo.
-// Vamos a definirlo de la misma manera que en server.js:
-async function inicializarAprobaciones(solicitudId, areas, client = db) {
-  try {
-    const dirUserRes = await client.query("SELECT id FROM usuarios WHERE area = 'director' AND rol = 'tecnico' LIMIT 1");
-    const dirUserId = dirUserRes.rows.length > 0 ? dirUserRes.rows[0].id : null;
 
-    for (const area of areas) {
-      if (area === 'director') {
-        await client.query(
-          `INSERT INTO aprobaciones (solicitud_id, area, estado, tecnico_id, fecha)
-           VALUES ($1, $2, 'aprobado', $3, CURRENT_TIMESTAMP)
-           ON CONFLICT (solicitud_id, area)
-           DO UPDATE SET estado = 'aprobado', tecnico_id = $3, fecha = CURRENT_TIMESTAMP`,
-          [solicitudId, area, dirUserId]
-        );
-      } else {
-        await client.query(
-          `INSERT INTO aprobaciones (solicitud_id, area, estado, tecnico_id, fecha)
-           VALUES ($1, $2, 'pendiente', NULL, NULL)
-           ON CONFLICT (solicitud_id, area)
-           DO UPDATE SET estado = 'pendiente', tecnico_id = NULL, fecha = NULL`,
-          [solicitudId, area]
-        );
-      }
-    }
-  } catch (error) {
-    console.error('Error al inicializar/resetear aprobaciones:', error);
-    throw error;
-  }
-}
 
 // 1. LISTAR USUARIOS
 router.get('/usuarios', autenticar, esAdmin, async (req, res) => {
@@ -139,21 +108,27 @@ router.put('/tipos-solicitud/:id', autenticar, esAdmin, async (req, res) => {
   if (!codigo || !nombre || !descripcion || !campos || !areas_validadoras) {
     return res.status(400).json({ error: 'Datos incompletos de la plantilla.' });
   }
+
+  const client = await db.pool.connect();
+
   try {
+    await client.query('BEGIN');
+
     const camposJSON = typeof campos === 'string' ? campos : JSON.stringify(campos);
     const areasJSON = typeof areas_validadoras === 'string' ? areas_validadoras : JSON.stringify(areas_validadoras);
     const codigoClean = codigo.trim().toUpperCase();
 
-    const result = await db.query(
+    const result = await client.query(
       'UPDATE tipos_solicitud SET codigo = $1, nombre = $2, descripcion = $3, campos = $4::jsonb, areas_validadoras = $5::jsonb, mail_destinatario = $6, mail_cc = $7, mail_asunto = $8, mail_cuerpo = $9, mail_progreso = $10 WHERE id = $11 RETURNING *',
       [codigoClean, nombre, descripcion, camposJSON, areasJSON, mail_destinatario || null, mail_cc || null, mail_asunto || null, mail_cuerpo || null, mail_progreso !== false, id]
     );
     if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Plantilla de formulario no encontrada.' });
     }
 
     // --- SINCRONIZAR Y REINICIAR APROBACIONES PARA SOLICITUDES ACTIVAS (EN REVISIÓN U OBSERVADAS) ---
-    const activeSolsRes = await db.query(
+    const activeSolsRes = await client.query(
       "SELECT id FROM solicitudes WHERE tipo_solicitud_id = $1 AND estado IN ('en_revision', 'observado')",
       [id]
     );
@@ -162,19 +137,23 @@ router.put('/tipos-solicitud/:id', autenticar, esAdmin, async (req, res) => {
 
     for (const sol of activeSolsRes.rows) {
       // 1. Eliminar aprobaciones de áreas que ya no son validadoras en esta plantilla
-      await db.query(
+      await client.query(
         "DELETE FROM aprobaciones WHERE solicitud_id = $1 AND NOT (area = ANY($2::text[]))",
         [sol.id, parsedAreas]
       );
 
       // 2. Reiniciar a pendiente todas las aprobaciones vigentes
-      await inicializarAprobaciones(sol.id, parsedAreas);
+      await inicializarAprobaciones(sol.id, parsedAreas, client);
     }
 
+    await client.query('COMMIT');
     res.json(result.rows[0]);
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error(error);
     res.status(500).json({ error: 'Error al actualizar la plantilla del formulario: ' + error.message });
+  } finally {
+    client.release();
   }
 });
 
