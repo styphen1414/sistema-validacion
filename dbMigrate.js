@@ -1,4 +1,23 @@
 const db = require('./db');
+const { hashPassword, isHashed } = require('./security');
+
+/**
+ * Hashea (scrypt) cualquier contraseña que aún esté almacenada en texto plano.
+ * Es idempotente: las contraseñas ya hasheadas se omiten.
+ */
+async function migrarPasswordsAHash() {
+  const res = await db.query('SELECT id, password FROM usuarios');
+  let migradas = 0;
+  for (const u of res.rows) {
+    if (!isHashed(u.password)) {
+      await db.query('UPDATE usuarios SET password = $1 WHERE id = $2', [hashPassword(u.password), u.id]);
+      migradas += 1;
+    }
+  }
+  if (migradas > 0) {
+    console.log(`SVT: Se hashearon ${migradas} contraseña(s) en texto plano.`);
+  }
+}
 
 /**
  * Ejecuta de forma asíncrona las migraciones y optimizaciones de la base de datos.
@@ -134,6 +153,10 @@ async function ejecutarMigraciones() {
       -- 13. Añadir la columna activo a la tabla usuarios para borrado lógico
       ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS activo BOOLEAN NOT NULL DEFAULT TRUE;
     `);
+
+    // Asegurar que todas las contraseñas queden hasheadas (seguridad).
+    await migrarPasswordsAHash();
+
     console.log('SVT: Migración y optimización de base de datos completada con éxito.');
   } catch (error) {
     console.error('SVT: Error crítico al ejecutar migraciones de base de datos:', error);

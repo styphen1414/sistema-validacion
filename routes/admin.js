@@ -1,19 +1,18 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
+const usuarioService = require('../services/usuarioService');
 const mailer = require('../mailer');
 const pdfGenerator = require('../pdfGenerator');
 const { autenticar, esAdmin } = require('../middlewares/auth');
 const nodemailer = require('nodemailer');
 const { inicializarAprobaciones } = require('../dbHelper');
-
-
+const { hashPassword } = require('../security');
 
 // 1. LISTAR USUARIOS
 router.get('/usuarios', autenticar, esAdmin, async (req, res) => {
   try {
-    const result = await db.query('SELECT id, correo AS username, nombre, rol, area, cedula, cargo, correo, direccion_proyecto, firma_documentos, activo FROM usuarios ORDER BY id');
-    res.json(result.rows);
+    const usuarios = await usuarioService.listarUsuarios();
+    res.json(usuarios);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al obtener los usuarios.' });
@@ -31,15 +30,22 @@ router.post('/usuarios', autenticar, esAdmin, async (req, res) => {
     const isFirma = isOsi ? (firma_documentos === true || firma_documentos === 'true') : false;
     const userActivo = activo !== false && activo !== 'false';
 
-    const result = await db.query(
-      'INSERT INTO usuarios (password, nombre, rol, area, cedula, cargo, correo, direccion_proyecto, firma_documentos, activo) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, correo AS username, nombre, rol, area, cedula, cargo, correo, direccion_proyecto, firma_documentos, activo',
-      [password, nombre, rol, rol === 'tecnico' ? area : null, cedula, cargo, username, rol === 'solicitante' ? direccion_proyecto : null, isFirma, userActivo]
-    );
+    const newUser = await usuarioService.crearUsuario({
+      password: hashPassword(password),
+      nombre,
+      rol,
+      area,
+      cedula,
+      cargo,
+      correo: username,
+      direccion_proyecto,
+      firma_documentos: isFirma,
+      activo: userActivo
+    });
 
-    const newUser = result.rows[0];
     if (isFirma) {
       // Exclusividad: apagar firma en otros OSI
-      await db.query("UPDATE usuarios SET firma_documentos = FALSE WHERE area = 'osi' AND id != $1", [newUser.id]);
+      await usuarioService.desactivarFirmasOtrosOsi(newUser.id);
     }
 
     res.json(newUser);
@@ -61,24 +67,30 @@ router.put('/usuarios/:id', autenticar, esAdmin, async (req, res) => {
     const isFirma = isOsi ? (firma_documentos === true || firma_documentos === 'true') : false;
     const userActivo = activo !== false && activo !== 'false';
 
-    let query;
-    let params;
+    const userData = {
+      nombre,
+      rol,
+      area,
+      cedula,
+      cargo,
+      correo: username,
+      direccion_proyecto,
+      firma_documentos: isFirma,
+      activo: userActivo
+    };
+
     if (password && password.trim() !== '') {
-      query = 'UPDATE usuarios SET password = $1, nombre = $2, rol = $3, area = $4, cedula = $5, cargo = $6, correo = $7, direccion_proyecto = $8, firma_documentos = $9, activo = $10 WHERE id = $11 RETURNING id, correo AS username, nombre, rol, area, cedula, cargo, correo, direccion_proyecto, firma_documentos, activo';
-      params = [password, nombre, rol, rol === 'tecnico' ? area : null, cedula, cargo, username, rol === 'solicitante' ? direccion_proyecto : null, isFirma, userActivo, id];
-    } else {
-      query = 'UPDATE usuarios SET nombre = $1, rol = $2, area = $3, cedula = $4, cargo = $5, correo = $6, direccion_proyecto = $7, firma_documentos = $8, activo = $9 WHERE id = $10 RETURNING id, correo AS username, nombre, rol, area, cedula, cargo, correo, direccion_proyecto, firma_documentos, activo';
-      params = [nombre, rol, rol === 'tecnico' ? area : null, cedula, cargo, username, rol === 'solicitante' ? direccion_proyecto : null, isFirma, userActivo, id];
+      userData.password = hashPassword(password);
     }
-    const result = await db.query(query, params);
-    if (result.rows.length === 0) {
+
+    const updatedUser = await usuarioService.actualizarUsuario(id, userData);
+    if (!updatedUser) {
       return res.status(404).json({ error: 'Usuario no encontrado.' });
     }
 
-    const updatedUser = result.rows[0];
     if (isFirma) {
       // Exclusividad: apagar firma en otros OSI
-      await db.query("UPDATE usuarios SET firma_documentos = FALSE WHERE area = 'osi' AND id != $1", [id]);
+      await usuarioService.desactivarFirmasOtrosOsi(id);
     }
 
     res.json(updatedUser);
@@ -91,35 +103,15 @@ router.put('/usuarios/:id', autenticar, esAdmin, async (req, res) => {
 // 4. ELIMINAR (DESACTIVAR) USUARIO Y LIMPIAR SOLICITUDES NO APROBADAS
 router.delete('/usuarios/:id', autenticar, esAdmin, async (req, res) => {
   const { id } = req.params;
-  const client = await db.pool.connect();
   try {
-    await client.query('BEGIN');
-
-    // 1. Desactivar usuario
-    const result = await client.query(
-      'UPDATE usuarios SET activo = FALSE WHERE id = $1 RETURNING id',
-      [id]
-    );
-
-    if (result.rows.length === 0) {
-      await client.query('ROLLBACK');
+    const deactivatedId = await usuarioService.desactivarUsuario(id);
+    if (!deactivatedId) {
       return res.status(404).json({ error: 'Usuario no encontrado.' });
     }
-
-    // 2. Eliminar solicitudes no aprobadas del usuario (borrador, en_revision, observado)
-    await client.query(
-      "DELETE FROM solicitudes WHERE solicitante_id = $1 AND estado != 'aprobado'",
-      [id]
-    );
-
-    await client.query('COMMIT');
     res.json({ message: 'Usuario desactivado con éxito y sus solicitudes no aprobadas fueron depuradas.' });
   } catch (error) {
-    await client.query('ROLLBACK');
     console.error(error);
     res.status(500).json({ error: 'Error al desactivar el usuario.' });
-  } finally {
-    client.release();
   }
 });
 
@@ -127,11 +119,8 @@ router.delete('/usuarios/:id', autenticar, esAdmin, async (req, res) => {
 router.post('/usuarios/:id/activar', autenticar, esAdmin, async (req, res) => {
   const { id } = req.params;
   try {
-    const result = await db.query(
-      'UPDATE usuarios SET activo = TRUE WHERE id = $1 RETURNING id',
-      [id]
-    );
-    if (result.rows.length === 0) {
+    const activatedUser = await usuarioService.activarUsuario(id);
+    if (!activatedUser) {
       return res.status(404).json({ error: 'Usuario no encontrado.' });
     }
     res.json({ message: 'Usuario activado con éxito.' });
@@ -149,51 +138,32 @@ router.put('/tipos-solicitud/:id', autenticar, esAdmin, async (req, res) => {
     return res.status(400).json({ error: 'Datos incompletos de la plantilla.' });
   }
 
-  const client = await db.pool.connect();
-
   try {
-    await client.query('BEGIN');
-
     const camposJSON = typeof campos === 'string' ? campos : JSON.stringify(campos);
     const areasJSON = typeof areas_validadoras === 'string' ? areas_validadoras : JSON.stringify(areas_validadoras);
     const codigoClean = codigo.trim().toUpperCase();
 
-    const result = await client.query(
-      'UPDATE tipos_solicitud SET codigo = $1, nombre = $2, descripcion = $3, campos = $4::jsonb, areas_validadoras = $5::jsonb, mail_destinatario = $6, mail_cc = $7, mail_asunto = $8, mail_cuerpo = $9, mail_progreso = $10 WHERE id = $11 RETURNING *',
-      [codigoClean, nombre, descripcion, camposJSON, areasJSON, mail_destinatario || null, mail_cc || null, mail_asunto || null, mail_cuerpo || null, mail_progreso !== false, id]
-    );
-    if (result.rows.length === 0) {
-      await client.query('ROLLBACK');
+    const updatedTemplate = await usuarioService.actualizarTipoSolicitud(id, {
+      codigo: codigoClean,
+      nombre,
+      descripcion,
+      campos: camposJSON,
+      areas_validadoras: areasJSON,
+      mail_destinatario: mail_destinatario || null,
+      mail_cc: mail_cc || null,
+      mail_asunto: mail_asunto || null,
+      mail_cuerpo: mail_cuerpo || null,
+      mail_progreso: mail_progreso !== false
+    }, inicializarAprobaciones);
+
+    if (!updatedTemplate) {
       return res.status(404).json({ error: 'Plantilla de formulario no encontrada.' });
     }
 
-    // --- SINCRONIZAR Y REINICIAR APROBACIONES PARA SOLICITUDES ACTIVAS (EN REVISIÓN U OBSERVADAS) ---
-    const activeSolsRes = await client.query(
-      "SELECT id FROM solicitudes WHERE tipo_solicitud_id = $1 AND estado IN ('en_revision', 'observado')",
-      [id]
-    );
-
-    const parsedAreas = Array.isArray(areas_validadoras) ? areas_validadoras : JSON.parse(areas_validadoras);
-
-    for (const sol of activeSolsRes.rows) {
-      // 1. Eliminar aprobaciones de áreas que ya no son validadoras en esta plantilla
-      await client.query(
-        "DELETE FROM aprobaciones WHERE solicitud_id = $1 AND NOT (area = ANY($2::text[]))",
-        [sol.id, parsedAreas]
-      );
-
-      // 2. Reiniciar a pendiente todas las aprobaciones vigentes
-      await inicializarAprobaciones(sol.id, parsedAreas, client);
-    }
-
-    await client.query('COMMIT');
-    res.json(result.rows[0]);
+    res.json(updatedTemplate);
   } catch (error) {
-    await client.query('ROLLBACK');
     console.error(error);
     res.status(500).json({ error: 'Error al actualizar la plantilla del formulario: ' + error.message });
-  } finally {
-    client.release();
   }
 });
 
@@ -208,11 +178,20 @@ router.post('/tipos-solicitud', autenticar, esAdmin, async (req, res) => {
     const areasJSON = typeof areas_validadoras === 'string' ? areas_validadoras : JSON.stringify(areas_validadoras);
     const codigoClean = codigo.trim().toUpperCase();
 
-    const result = await db.query(
-      'INSERT INTO tipos_solicitud (codigo, nombre, descripcion, campos, areas_validadoras, mail_destinatario, mail_cc, mail_asunto, mail_cuerpo, mail_progreso) VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7, $8, $9, $10) RETURNING *',
-      [codigoClean, nombre, descripcion, camposJSON, areasJSON, mail_destinatario || null, mail_cc || null, mail_asunto || null, mail_cuerpo || null, mail_progreso !== false]
-    );
-    res.json(result.rows[0]);
+    const newTemplate = await usuarioService.crearTipoSolicitud({
+      codigo: codigoClean,
+      nombre,
+      descripcion,
+      campos: camposJSON,
+      areas_validadoras: areasJSON,
+      mail_destinatario: mail_destinatario || null,
+      mail_cc: mail_cc || null,
+      mail_asunto: mail_asunto || null,
+      mail_cuerpo: mail_cuerpo || null,
+      mail_progreso: mail_progreso !== false
+    });
+
+    res.json(newTemplate);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al crear la plantilla del formulario: ' + error.message });
@@ -265,7 +244,6 @@ router.post('/tipos-solicitud/preview-pdf', autenticar, esAdmin, async (req, res
       } else if (campo.type === 'text_list') {
         mockDatos[campo.name] = ['Opción de Ejemplo A', 'Opción de Ejemplo B'];
       } else if (campo.type === 'grid' || campo.type === 'fixed_grid' || campo.type === 'fixed_grid_dynamic_cols' || campo.type === 'fixed_grid_fixed_cols') {
-        // Generar una fila de ejemplo para grillas
         const row = {};
         const isFixedGrid = (campo.type === 'fixed_grid' || campo.type === 'fixed_grid_dynamic_cols' || campo.type === 'fixed_grid_fixed_cols') && Array.isArray(campo.rows) && campo.rows.length > 0;
         let cols = campo.columns || [];
@@ -274,7 +252,6 @@ router.post('/tipos-solicitud/preview-pdf', autenticar, esAdmin, async (req, res
           cols = [{ name: rowLabelName, type: 'text' }, ...cols];
         }
 
-        // Si es fixed_grid_dynamic_cols, inyectar una columna dinámica de ejemplo
         if (campo.type === 'fixed_grid_dynamic_cols') {
           cols = [...cols, { name: 'Columna Dinámica de Ejemplo', type: 'text' }];
         }
@@ -314,22 +291,18 @@ router.post('/tipos-solicitud/preview-pdf', autenticar, esAdmin, async (req, res
         });
 
         if (isFixedGrid) {
-          // Si es un fixed_grid, generar mock data para las filas fijas configuradas
           const rowLabelName = campo.row_label || 'Descripción / Fila';
           mockDatos[campo.name] = campo.rows.map(rName => {
             return { ...row, [rowLabelName]: rName };
           });
         } else {
-          // Grid dinámico o fixed_grid sin filas fijas: generar exactamente 1 fila
           mockDatos[campo.name] = [row];
         }
       } else {
-        // text, short_text, long_text, dropdown, etc.
         mockDatos[campo.name] = 'Texto de ejemplo del solicitante';
       }
     });
 
-    // Crear la solicitud mock
     const mockSolicitud = {
       id: 0,
       tipo_codigo: codigo,
@@ -345,10 +318,9 @@ router.post('/tipos-solicitud/preview-pdf', autenticar, esAdmin, async (req, res
       datos: mockDatos
     };
 
-    // Crear aprobaciones mock
     const mockAprobaciones = [];
     parsedAreas.forEach(area => {
-      if (area === 'director') return; // Se maneja por separado como directorSigner
+      if (area === 'director') return;
       
       let sigla = area.toUpperCase();
       let nombreLargo = area;
@@ -397,8 +369,8 @@ router.post('/tipos-solicitud/preview-pdf', autenticar, esAdmin, async (req, res
 router.delete('/tipos-solicitud/:id', autenticar, esAdmin, async (req, res) => {
   const { id } = req.params;
   try {
-    const result = await db.query('DELETE FROM tipos_solicitud WHERE id = $1 RETURNING id', [id]);
-    if (result.rows.length === 0) {
+    const deleted = await usuarioService.eliminarTipoSolicitud(id);
+    if (!deleted) {
       return res.status(404).json({ error: 'Plantilla de formulario no encontrada.' });
     }
     res.json({ message: 'Plantilla de formulario eliminada con éxito.' });
@@ -418,8 +390,6 @@ router.post('/enviar-correo-prueba', autenticar, esAdmin, async (req, res) => {
 
   try {
     const mailTransporter = await mailer.obtenerTransporter();
-    
-    // Configurar remitente
     const fromAddress = process.env.SMTP_FROM || `"SVT MSP - Pruebas" <${mailTransporter.options.auth.user}>`;
 
     const mailOptions = {

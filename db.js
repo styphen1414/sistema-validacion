@@ -8,7 +8,8 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD,
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
-  database: process.env.DB_NAME,
+  // Acepta tanto DB_NAME como DB_DATABASE para evitar fallos de configuración.
+  database: process.env.DB_NAME || process.env.DB_DATABASE,
 });
 
 // Mensaje para confirmar si la conexión es exitosa al arrancar

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
+const solicitudService = require('../services/solicitudService');
 const mailer = require('../mailer');
 const pdfGenerator = require('../pdfGenerator');
 const { autenticar } = require('../middlewares/auth');
@@ -62,7 +62,6 @@ function validarDatos(campos, datos) {
       for (const row of valor) {
         let columns = [...(campo.columns || [])];
         
-        // Agregar dinámicamente si es fixed_grid_dynamic_cols
         if (campo.type === 'fixed_grid_dynamic_cols') {
           const predefinedColNames = columns.map(col => typeof col === 'object' ? col.name : col);
           const rowLabelKey = campo.row_label || 'Descripción / Fila';
@@ -120,7 +119,6 @@ function validarDatos(campos, datos) {
   return null;
 }
 
-
 // 3. CREAR NUEVA SOLICITUD
 router.post('/', autenticar, async (req, res) => {
   const { tipo_solicitud_id, datos, enviar } = req.body;
@@ -131,36 +129,26 @@ router.post('/', autenticar, async (req, res) => {
   }
 
   const estado = enviar ? 'en_revision' : 'borrador';
-  const client = await db.pool.connect();
 
   try {
-    await client.query('BEGIN');
-
-    const tipoRes = await client.query('SELECT areas_validadoras, campos FROM tipos_solicitud WHERE id = $1', [tipo_solicitud_id]);
-    if (tipoRes.rows.length === 0) {
-      await client.query('ROLLBACK');
+    const tipo = await solicitudService.obtenerTipoSolicitud(tipo_solicitud_id);
+    if (!tipo) {
       return res.status(400).json({ error: 'El tipo de solicitud no existe.' });
     }
-    const { areas_validadoras: areas, campos } = tipoRes.rows[0];
 
-    // Validación estricta en el servidor para evitar inyecciones maliciosas e IP/MAC inválidos
-    const validationError = validarDatos(campos, datos);
+    const validationError = validarDatos(tipo.campos, datos);
     if (validationError) {
-      await client.query('ROLLBACK');
       return res.status(400).json({ error: validationError });
     }
 
-    const insertRes = await client.query(
-      'INSERT INTO solicitudes (solicitante_id, tipo_solicitud_id, datos, estado) VALUES ($1, $2, $3, $4) RETURNING *',
-      [solicitanteId, tipo_solicitud_id, datos, estado]
+    const solicitud = await solicitudService.crearSolicitud(
+      solicitanteId,
+      tipo_solicitud_id,
+      datos,
+      estado,
+      tipo.areas_validadoras,
+      inicializarAprobaciones
     );
-    const solicitud = insertRes.rows[0];
-
-    if (estado === 'en_revision') {
-      await inicializarAprobaciones(solicitud.id, areas, client);
-    }
-
-    await client.query('COMMIT');
 
     if (estado === 'en_revision') {
       mailer.enviarCorreoNuevaSolicitud(solicitud.id).catch(err => {
@@ -170,11 +158,8 @@ router.post('/', autenticar, async (req, res) => {
 
     res.json(solicitud);
   } catch (error) {
-    await client.query('ROLLBACK');
     console.error(error);
     res.status(500).json({ error: 'Error al crear la solicitud.' });
-  } finally {
-    client.release();
   }
 });
 
@@ -184,97 +169,30 @@ router.get('/', autenticar, async (req, res) => {
   const { page, limit, estado, search } = req.query;
 
   try {
-    const params = [];
-    const whereClauses = [];
-
-    const addParam = (val) => {
-      params.push(val);
-      return `$${params.length}`;
-    };
-
-    let fromClause = `
-      FROM solicitudes s
-      JOIN usuarios u ON s.solicitante_id = u.id
-      JOIN tipos_solicitud ts ON s.tipo_solicitud_id = ts.id
-    `;
-
-    if (rol === 'solicitante') {
-      whereClauses.push(`s.solicitante_id = ${addParam(id)}`);
-    } else if (rol === 'tecnico') {
-      whereClauses.push(`s.estado != 'borrador'`);
-
-      const areaParam = addParam(area);
-      whereClauses.push(`ts.areas_validadoras @> jsonb_build_array(${areaParam}::text)`);
-
-      if (['seguridad', 'gibdd', 'giitrc', 'osi'].includes(area)) {
-        const tecnicoParam = addParam(id);
-        fromClause += ` LEFT JOIN aprobaciones ap ON ap.solicitud_id = s.id AND ap.area = ${areaParam}`;
-        whereClauses.push(`(ap.tecnico_id IS NULL OR ap.tecnico_id = ${tecnicoParam})`);
-      }
-    }
-
-    if (estado && estado !== 'todos' && estado.trim() !== '') {
-      whereClauses.push(`s.estado = ${addParam(estado.trim())}`);
-    }
-
-    if (search && search.trim() !== '') {
-      const searchPattern = `%${search.trim()}%`;
-      const searchParam = addParam(searchPattern);
-      whereClauses.push(
-        `(u.nombre ILIKE ${searchParam} OR u.cedula ILIKE ${searchParam} OR ts.nombre ILIKE ${searchParam} OR ts.codigo ILIKE ${searchParam})`
-      );
-    }
-
-    const whereString = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
-
-    const countQuery = `
-      SELECT COUNT(DISTINCT s.id) AS total
-      ${fromClause}
-      ${whereString}
-    `;
-    const countResult = await db.query(countQuery, params);
-    const totalItems = parseInt(countResult.rows[0].total, 10) || 0;
-
-    const pageNum = Math.max(1, parseInt(page, 10) || 1);
-    const limitNum = Math.max(1, parseInt(limit, 10) || 10);
-    const offset = (pageNum - 1) * limitNum;
-
-    const limitParam = addParam(limitNum);
-    const offsetParam = addParam(offset);
-
-    const dataQuery = `
-      SELECT s.id, s.tipo_solicitud_id, s.datos, s.estado, s.fecha_creacion, s.fecha_actualizacion,
-             u.nombre AS solicitante_nombre, u.cedula AS solicitante_cedula, ts.nombre AS tipo_nombre, ts.codigo AS tipo_codigo, ts.areas_validadoras,
-             COALESCE((
-               SELECT json_agg(json_build_object('area', a.area, 'estado', a.estado))
-               FROM aprobaciones a
-               WHERE a.solicitud_id = s.id
-             ), '[]'::json) AS estados_aprobaciones,
-             (
-               SELECT o.area
-               FROM observaciones o
-               WHERE o.solicitud_id = s.id
-               ORDER BY o.fecha DESC
-               LIMIT 1
-             ) AS ultima_observacion_area
-      ${fromClause}
-      ${whereString}
-      ORDER BY s.fecha_actualizacion DESC
-      LIMIT ${limitParam} OFFSET ${offsetParam}
-    `;
-
-    const dataResult = await db.query(dataQuery, params);
-
-    res.json({
-      solicitudes: dataResult.rows,
-      total: totalItems,
-      page: pageNum,
-      limit: limitNum,
-      pages: Math.ceil(totalItems / limitNum)
+    const data = await solicitudService.buscarBandeja({
+      id,
+      rol,
+      area,
+      page,
+      limit,
+      estado,
+      search
     });
+    res.json(data);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al obtener las solicitudes de la bandeja.' });
+  }
+});
+
+// 4.b. OBTENER ESTADÍSTICAS DE SOLICITUDES (CONTEOS POR ESTADO)
+router.get('/stats', autenticar, async (req, res) => {
+  try {
+    const counts = await solicitudService.obtenerEstadisticas(req.usuario);
+    res.json(counts);
+  } catch (error) {
+    console.error('Error al obtener estadísticas de solicitudes:', error);
+    res.status(500).json({ error: 'Error al obtener estadísticas.' });
   }
 });
 
@@ -282,42 +200,18 @@ router.get('/', autenticar, async (req, res) => {
 router.get('/:id', autenticar, async (req, res) => {
   const { id } = req.params;
   try {
-    const solRes = await db.query(
-      `SELECT s.id, s.solicitante_id, s.tipo_solicitud_id, s.datos, s.estado, s.fecha_creacion, s.fecha_actualizacion,
-              u.nombre AS solicitante_nombre, ts.nombre AS tipo_nombre, ts.codigo AS tipo_codigo, ts.campos
-       FROM solicitudes s
-       JOIN usuarios u ON s.solicitante_id = u.id
-       JOIN tipos_solicitud ts ON s.tipo_solicitud_id = ts.id
-       WHERE s.id = $1`,
-      [id]
-    );
-
-    if (solRes.rows.length === 0) {
+    const solicitud = await solicitudService.obtenerSolicitudDetalle(id);
+    if (!solicitud) {
       return res.status(404).json({ error: 'Solicitud no encontrada.' });
     }
-    const solicitud = solRes.rows[0];
 
-    const apRes = await db.query(
-      `SELECT a.area, a.estado, a.fecha, a.observacion, a.tecnico_id, u.nombre AS tecnico_nombre
-       FROM aprobaciones a
-       LEFT JOIN usuarios u ON a.tecnico_id = u.id
-       WHERE a.solicitud_id = $1`,
-      [id]
-    );
-
-    const obsRes = await db.query(
-      `SELECT o.area, o.texto, o.fecha, u.nombre AS autor_nombre
-       FROM observaciones o
-       JOIN usuarios u ON o.autor_id = u.id
-       WHERE o.solicitud_id = $1
-       ORDER BY o.fecha DESC`,
-      [id]
-    );
+    const aprobaciones = await solicitudService.obtenerAprobaciones(id);
+    const observaciones = await solicitudService.obtenerObservaciones(id);
 
     res.json({
       ...solicitud,
-      aprobaciones: apRes.rows,
-      observaciones: obsRes.rows,
+      aprobaciones,
+      observaciones
     });
   } catch (error) {
     console.error(error);
@@ -335,24 +229,12 @@ router.put('/:id', autenticar, async (req, res) => {
     return res.status(400).json({ error: 'Datos incompletos.' });
   }
 
-  const client = await db.pool.connect();
-
   try {
-    await client.query('BEGIN');
-
-    const solRes = await client.query(
-      `SELECT s.estado, s.solicitante_id, ts.areas_validadoras, ts.campos 
-       FROM solicitudes s
-       JOIN tipos_solicitud ts ON s.tipo_solicitud_id = ts.id
-       WHERE s.id = $1`,
-      [id]
-    );
-    if (solRes.rows.length === 0) {
-      await client.query('ROLLBACK');
+    const solicitud = await solicitudService.obtenerSolicitudDetalle(id);
+    if (!solicitud) {
       return res.status(404).json({ error: 'Solicitud no encontrada.' });
     }
 
-    const solicitud = solRes.rows[0];
     let autorizado = false;
 
     if (rol === 'admin') {
@@ -364,11 +246,8 @@ router.put('/:id', autenticar, async (req, res) => {
     } else if (rol === 'tecnico' && area && area !== 'director' && solicitud.areas_validadoras.includes(area)) {
       if (solicitud.estado === 'en_revision' || solicitud.estado === 'observado') {
         if (['seguridad', 'gibdd', 'giitrc', 'osi'].includes(area)) {
-          const asignadoRes = await client.query(
-            "SELECT tecnico_id FROM aprobaciones WHERE solicitud_id = $1 AND area = $2",
-            [id, area]
-          );
-          if (asignadoRes.rows.length > 0 && asignadoRes.rows[0].tecnico_id === userId) {
+          const aprobacion = await solicitudService.obtenerAprobacionArea(id, area);
+          if (aprobacion && aprobacion.tecnico_id === userId) {
             autorizado = true;
           }
         } else {
@@ -378,35 +257,23 @@ router.put('/:id', autenticar, async (req, res) => {
     }
 
     if (!autorizado) {
-      await client.query('ROLLBACK');
       return res.status(403).json({ error: 'No tienes permiso para modificar esta solicitud.' });
     }
 
-    // Validación estricta en el servidor para evitar inyecciones maliciosas e IP/MAC inválidos
     const validationError = validarDatos(solicitud.campos, datos);
     if (validationError) {
-      await client.query('ROLLBACK');
       return res.status(400).json({ error: validationError });
     }
 
     const nuevoEstado = (rol === 'solicitante' && enviar) ? 'en_revision' : solicitud.estado;
 
-    await client.query(
-      'UPDATE solicitudes SET datos = $1, estado = $2, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = $3',
-      [datos, nuevoEstado, id]
+    const { dispararCorreo } = await solicitudService.actualizarSolicitud(
+      id,
+      datos,
+      nuevoEstado,
+      inicializarAprobaciones,
+      solicitud.areas_validadoras
     );
-
-    let dispararCorreo = false;
-    if (rol === 'solicitante' && nuevoEstado === 'en_revision') {
-      const apCheck = await client.query('SELECT COUNT(*) FROM aprobaciones WHERE solicitud_id = $1', [id]);
-      const tieneAprobaciones = parseInt(apCheck.rows[0].count, 10) > 0;
-      if (!tieneAprobaciones || solicitud.estado === 'borrador') {
-        await inicializarAprobaciones(id, solicitud.areas_validadoras, client);
-        dispararCorreo = true;
-      }
-    }
-
-    await client.query('COMMIT');
 
     if (dispararCorreo) {
       mailer.enviarCorreoNuevaSolicitud(id).catch(err => {
@@ -416,11 +283,8 @@ router.put('/:id', autenticar, async (req, res) => {
 
     res.json({ message: 'Solicitud actualizada con éxito.', estado: nuevoEstado });
   } catch (error) {
-    await client.query('ROLLBACK');
     console.error(error);
     res.status(500).json({ error: 'Error al actualizar la solicitud.' });
-  } finally {
-    client.release();
   }
 });
 
@@ -434,62 +298,22 @@ router.post('/:id/aprobar', autenticar, async (req, res) => {
     return res.status(403).json({ error: 'Solo los analistas de áreas técnicas pueden aprobar (excepto Director DTIC).' });
   }
 
-  const client = await db.pool.connect();
-
   try {
-    await client.query('BEGIN');
-
-    const solRes = await client.query('SELECT estado FROM solicitudes WHERE id = $1', [id]);
-    if (solRes.rows.length === 0) {
-      await client.query('ROLLBACK');
+    const solicitud = await solicitudService.obtenerSolicitudDetalle(id);
+    if (!solicitud) {
       return res.status(404).json({ error: 'Solicitud no encontrada.' });
     }
-    const estadoActual = solRes.rows[0].estado;
-    if (estadoActual !== 'en_revision' && estadoActual !== 'observado') {
-      await client.query('ROLLBACK');
+    if (solicitud.estado !== 'en_revision' && solicitud.estado !== 'observado') {
       return res.status(400).json({ error: 'La solicitud debe estar en revisión o con observaciones para aprobar.' });
     }
 
-    const apRes = await client.query(
-      `UPDATE aprobaciones 
-       SET estado = 'aprobado', tecnico_id = $1, fecha = CURRENT_TIMESTAMP, observacion = $2 
-       WHERE solicitud_id = $3 AND area = $4
-       RETURNING *`,
-      [tecnicoId, observacion || null, id, area]
-    );
-
-    if (apRes.rows.length === 0) {
-      await client.query('ROLLBACK');
+    const approvalResult = await solicitudService.aprobarSeccion(id, tecnicoId, area, observacion);
+    if (!approvalResult) {
       return res.status(400).json({ error: 'Esta solicitud no requiere la validación de tu área.' });
     }
 
-    if (observacion && observacion.trim() !== '') {
-      await client.query(
-        `INSERT INTO observaciones (solicitud_id, area, autor_id, texto) 
-         VALUES ($1, $2, $3, $4)`,
-        [id, area, tecnicoId, `[Aprobado con Observación] ${observacion}`]
-      );
-    }
-
-    const todasAprobadasRes = await client.query(
-      "SELECT COUNT(*) FROM aprobaciones WHERE solicitud_id = $1 AND estado = 'pendiente'",
-      [id]
-    );
-    const pendientes = parseInt(todasAprobadasRes.rows[0].count, 10);
-
-    let nuevoEstadoGeneral = estadoActual;
-    let esAprobacionTotal = false;
-
-    if (pendientes === 0) {
-      nuevoEstadoGeneral = 'aprobado';
-      esAprobacionTotal = true;
-      await client.query(
-        "UPDATE solicitudes SET estado = 'aprobado', fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = $1",
-        [id]
-      );
-    }
-
-    await client.query('COMMIT');
+    const { esAprobacionTotal } = approvalResult;
+    let nuevoEstadoGeneral = esAprobacionTotal ? 'aprobado' : solicitud.estado;
 
     if (esAprobacionTotal) {
       mailer.enviarCorreoProgresoSolicitud(id, 'aprobado_total', area, observacion).catch(err => {
@@ -503,11 +327,8 @@ router.post('/:id/aprobar', autenticar, async (req, res) => {
 
     res.json({ message: 'Sección aprobada con éxito.', estadoGeneral: nuevoEstadoGeneral });
   } catch (error) {
-    await client.query('ROLLBACK');
     console.error(error);
     res.status(500).json({ error: 'Error al procesar la aprobación.' });
-  } finally {
-    client.release();
   }
 });
 
@@ -525,19 +346,15 @@ router.post('/:id/observar-simple', autenticar, async (req, res) => {
   }
 
   try {
-    const solRes = await db.query('SELECT estado FROM solicitudes WHERE id = $1', [id]);
-    if (solRes.rows.length === 0) {
+    const solicitud = await solicitudService.obtenerSolicitudDetalle(id);
+    if (!solicitud) {
       return res.status(404).json({ error: 'Solicitud no encontrada.' });
     }
-    if (solRes.rows[0].estado === 'borrador') {
+    if (solicitud.estado === 'borrador') {
       return res.status(400).json({ error: 'La solicitud está en borrador.' });
     }
 
-    await db.query(
-      'INSERT INTO observaciones (solicitud_id, area, autor_id, texto) VALUES ($1, $2, $3, $4)',
-      [id, area, tecnicoId, texto]
-    );
-
+    await solicitudService.registrarObservacionSimple(id, area, tecnicoId, texto);
     res.json({ message: 'Observación registrada con éxito.' });
   } catch (error) {
     console.error(error);
@@ -558,33 +375,16 @@ router.post('/:id/observar', autenticar, async (req, res) => {
     return res.status(400).json({ error: 'El detalle de la observación no puede estar vacío.' });
   }
 
-  const client = await db.pool.connect();
-
   try {
-    await client.query('BEGIN');
-
-    const solRes = await client.query('SELECT estado FROM solicitudes WHERE id = $1', [id]);
-    if (solRes.rows.length === 0) {
-      await client.query('ROLLBACK');
+    const solicitud = await solicitudService.obtenerSolicitudDetalle(id);
+    if (!solicitud) {
       return res.status(404).json({ error: 'Solicitud no encontrada.' });
     }
-    const estadoActual = solRes.rows[0].estado;
-    if (estadoActual !== 'en_revision' && estadoActual !== 'observado') {
-      await client.query('ROLLBACK');
+    if (solicitud.estado !== 'en_revision' && solicitud.estado !== 'observado') {
       return res.status(400).json({ error: 'La solicitud debe estar en revisión o con observaciones.' });
     }
 
-    await client.query(
-      'INSERT INTO observaciones (solicitud_id, area, autor_id, texto) VALUES ($1, $2, $3, $4)',
-      [id, area, tecnicoId, texto]
-    );
-
-    await client.query(
-      "UPDATE solicitudes SET estado = 'observado', fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = $1",
-      [id]
-    );
-
-    await client.query('COMMIT');
+    await solicitudService.registrarObservacionYReabrir(id, area, tecnicoId, texto);
 
     mailer.enviarCorreoProgresoSolicitud(id, 'observado', area, texto).catch(err => {
       console.error('Error al enviar correo de progreso observado:', err);
@@ -592,11 +392,8 @@ router.post('/:id/observar', autenticar, async (req, res) => {
 
     res.json({ message: 'Observación registrada y flujo marcado como observado.' });
   } catch (error) {
-    await client.query('ROLLBACK');
     console.error(error);
     res.status(500).json({ error: 'Error al registrar la observación.' });
-  } finally {
-    client.release();
   }
 });
 
@@ -610,34 +407,23 @@ router.post('/:id/asignar', autenticar, async (req, res) => {
   }
 
   try {
-    const solRes = await db.query('SELECT estado FROM solicitudes WHERE id = $1', [id]);
-    if (solRes.rows.length === 0) {
+    const solicitud = await solicitudService.obtenerSolicitudDetalle(id);
+    if (!solicitud) {
       return res.status(404).json({ error: 'Solicitud no encontrada.' });
     }
-    const estadoActual = solRes.rows[0].estado;
-    if (estadoActual !== 'en_revision' && estadoActual !== 'observado') {
+    if (solicitud.estado !== 'en_revision' && solicitud.estado !== 'observado') {
       return res.status(400).json({ error: 'La solicitud debe estar en revisión o con observaciones para asignarse.' });
     }
 
-    const apRes = await db.query(
-      'SELECT tecnico_id, estado FROM aprobaciones WHERE solicitud_id = $1 AND area = $2',
-      [id, area]
-    );
-
-    if (apRes.rows.length === 0) {
+    const aprobacion = await solicitudService.obtenerAprobacionArea(id, area);
+    if (!aprobacion) {
       return res.status(400).json({ error: 'Esta solicitud no requiere la validación de tu área.' });
     }
-
-    const aprobacion = apRes.rows[0];
     if (aprobacion.tecnico_id && aprobacion.tecnico_id !== tecnicoId) {
       return res.status(400).json({ error: 'Esta solicitud ya ha sido asignada a otro técnico de tu área.' });
     }
 
-    await db.query(
-      'UPDATE aprobaciones SET tecnico_id = $1 WHERE solicitud_id = $2 AND area = $3',
-      [tecnicoId, id, area]
-    );
-
+    await solicitudService.asignarTecnico(id, area, tecnicoId);
     res.json({ message: 'Solicitud asignada con éxito.' });
   } catch (error) {
     console.error(error);
@@ -655,30 +441,19 @@ router.post('/:id/desasignar', autenticar, async (req, res) => {
   }
 
   try {
-    const apRes = await db.query(
-      'SELECT tecnico_id, estado FROM aprobaciones WHERE solicitud_id = $1 AND area = $2',
-      [id, area]
-    );
-
-    if (apRes.rows.length === 0) {
+    const aprobacion = await solicitudService.obtenerAprobacionArea(id, area);
+    if (!aprobacion) {
       return res.status(400).json({ error: 'Esta solicitud no requiere la validación de tu área.' });
     }
-
-    const aprobacion = apRes.rows[0];
     if (aprobacion.tecnico_id !== tecnicoId) {
       return res.status(400).json({ error: 'No estás asignado a esta solicitud, no puedes liberarla.' });
     }
-
     if (aprobacion.estado === 'aprobado') {
       return res.status(400).json({ error: 'La sección ya ha sido aprobada, no se puede liberar la asignación.' });
     }
 
-    await db.query(
-      'UPDATE aprobaciones SET tecnico_id = NULL WHERE solicitud_id = $1 AND area = $2 AND tecnico_id = $3',
-      [id, area, tecnicoId]
-    );
-
-    res.json({ message: 'Solicitud liberada con éxito.' });
+    await solicitudService.desasignarTecnico(id, area, tecnicoId);
+    res.json({ message: 'Solicitud asignada liberada con éxito.' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al liberar la solicitud.' });
@@ -695,28 +470,12 @@ router.post('/:id/reabrir', autenticar, async (req, res) => {
     return res.status(400).json({ error: 'El motivo de la reapertura es requerido.' });
   }
 
-  const client = await db.pool.connect();
-
   try {
-    await client.query('BEGIN');
-
-    const solRes = await client.query(
-      `SELECT s.estado, s.solicitante_id, ts.areas_validadoras 
-       FROM solicitudes s
-       JOIN tipos_solicitud ts ON s.tipo_solicitud_id = ts.id
-       WHERE s.id = $1`,
-      [id]
-    );
-
-    if (solRes.rows.length === 0) {
-      await client.query('ROLLBACK');
+    const solicitud = await solicitudService.obtenerSolicitudDetalle(id);
+    if (!solicitud) {
       return res.status(404).json({ error: 'Solicitud no encontrada.' });
     }
-
-    const solicitud = solRes.rows[0];
-
     if (solicitud.estado === 'borrador') {
-      await client.query('ROLLBACK');
       return res.status(400).json({ error: 'No se puede reabrir una solicitud en borrador.' });
     }
 
@@ -727,11 +486,8 @@ router.post('/:id/reabrir', autenticar, async (req, res) => {
       autorizado = true;
     } else if (rol === 'tecnico' && area && area !== 'director' && solicitud.areas_validadoras.includes(area)) {
       if (['seguridad', 'gibdd', 'giitrc', 'osi'].includes(area)) {
-        const asignadoRes = await client.query(
-          "SELECT tecnico_id FROM aprobaciones WHERE solicitud_id = $1 AND area = $2",
-          [id, area]
-        );
-        if (asignadoRes.rows.length > 0 && asignadoRes.rows[0].tecnico_id === userId) {
+        const aprobacion = await solicitudService.obtenerAprobacionArea(id, area);
+        if (aprobacion && aprobacion.tecnico_id === userId) {
           autorizado = true;
         }
       } else {
@@ -740,24 +496,19 @@ router.post('/:id/reabrir', autenticar, async (req, res) => {
     }
 
     if (!autorizado) {
-      await client.query('ROLLBACK');
       return res.status(403).json({ error: 'No tienes permiso para reabrir esta solicitud.' });
     }
 
-    await client.query(
-      "UPDATE solicitudes SET estado = 'en_revision', fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = $1",
-      [id]
-    );
-
-    await inicializarAprobaciones(id, solicitud.areas_validadoras, client);
-
     const autorArea = rol === 'tecnico' ? area : (rol === 'admin' ? 'admin' : 'solicitante');
-    await client.query(
-      'INSERT INTO observaciones (solicitud_id, area, autor_id, texto) VALUES ($1, $2, $3, $4)',
-      [id, autorArea, userId, `REAPERTURA DEL PROCESO: ${texto}`]
-    );
 
-    await client.query('COMMIT');
+    await solicitudService.reabrirProcesoRevision(
+      id,
+      autorArea,
+      userId,
+      texto,
+      solicitud.areas_validadoras,
+      inicializarAprobaciones
+    );
 
     mailer.enviarCorreoProgresoSolicitud(id, 'reapertura', autorArea, texto).catch(err => {
       console.error('Error al enviar correo de progreso de reapertura:', err);
@@ -765,11 +516,8 @@ router.post('/:id/reabrir', autenticar, async (req, res) => {
 
     res.json({ message: 'El proceso de revisión se ha reabierto para todas las áreas.' });
   } catch (error) {
-    await client.query('ROLLBACK');
     console.error(error);
     res.status(500).json({ error: 'Error al reabrir el proceso de revisión.' });
-  } finally {
-    client.release();
   }
 });
 
@@ -777,44 +525,16 @@ router.post('/:id/reabrir', autenticar, async (req, res) => {
 router.get('/:id/pdf', autenticar, async (req, res) => {
   const { id } = req.params;
   try {
-    const solRes = await db.query(
-      `SELECT s.id, s.datos, s.estado, s.fecha_creacion, s.fecha_actualizacion,
-              u.nombre AS solicitante_nombre, u.cedula AS solicitante_cedula,
-              u.cargo AS solicitante_cargo, u.correo AS solicitante_correo,
-              u.direccion_proyecto AS solicitante_direccion_proyecto,
-              ts.nombre AS tipo_nombre, ts.codigo AS tipo_codigo, ts.campos,
-              ts.areas_validadoras
-       FROM solicitudes s
-       JOIN usuarios u ON s.solicitante_id = u.id
-       JOIN tipos_solicitud ts ON s.tipo_solicitud_id = ts.id
-       WHERE s.id = $1`,
-      [id]
-    );
-
-    if (solRes.rows.length === 0) {
+    const pdfData = await solicitudService.obtenerDatosPDF(id);
+    if (!pdfData) {
       return res.status(404).send('Solicitud no encontrada.');
     }
-    const solicitud = solRes.rows[0];
+
+    const { solicitud, aprobaciones, directorSigner } = pdfData;
 
     if (solicitud.estado !== 'aprobado' && req.usuario.rol !== 'admin') {
       return res.status(400).send('El documento institucional solo puede generarse para solicitudes completamente aprobadas.');
     }
-
-    const apRes = await db.query(
-      `SELECT a.area, a.estado, a.fecha, a.observacion, u.nombre AS tecnico_nombre,
-              u.cedula AS tecnico_cedula, u.cargo AS tecnico_cargo, u.correo AS tecnico_correo
-       FROM aprobaciones a
-       LEFT JOIN usuarios u ON a.tecnico_id = u.id
-       WHERE a.solicitud_id = $1`,
-      [id]
-    );
-
-    const directorSignerRes = await db.query(
-      `SELECT nombre, cedula, cargo FROM usuarios 
-       WHERE area = 'director' AND rol = 'tecnico' 
-       ORDER BY id ASC LIMIT 1`
-    );
-    const directorSigner = directorSignerRes.rows[0] || null;
 
     const fecha = new Date(solicitud.fecha_creacion);
     const mes = String(fecha.getMonth() + 1).padStart(2, '0');
@@ -823,7 +543,7 @@ router.get('/:id/pdf', autenticar, async (req, res) => {
     const cedulaClean = (solicitud.solicitante_cedula || 'NOCEDULA').trim().replace(/[^a-zA-Z0-9_-]/g, '');
     const filename = `${codigoClean}_${cedulaClean}_${mes}_${anio}.pdf`;
 
-    const pdfBuffer = await pdfGenerator.generarPDF(solicitud, apRes.rows, directorSigner);
+    const pdfBuffer = await pdfGenerator.generarPDF(solicitud, aprobaciones, directorSigner);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(pdfBuffer);

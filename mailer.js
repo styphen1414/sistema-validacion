@@ -56,12 +56,22 @@ async function obtenerTransporter() {
   return transporter;
 }
 
+function generarCodigoSeguimiento(sol) {
+  if (!sol) return '';
+  const fechaCreacion = new Date(sol.fecha_creacion);
+  const mes = String(fechaCreacion.getMonth() + 1).padStart(2, '0');
+  const anio = fechaCreacion.getFullYear();
+  const codigoClean = (sol.tipo_codigo || 'FORM').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+  const cedulaClean = (sol.solicitante_cedula || '').trim().replace(/[^a-zA-Z0-9_-]/g, '');
+  return `${codigoClean}_${cedulaClean}_${mes}_${anio}`;
+}
+
 async function enviarCorreoNuevaSolicitud(solicitudId) {
   try {
     // 1. Obtener la solicitud con los datos del solicitante y la plantilla del formulario
     const query = `
       SELECT s.id, s.datos, s.fecha_creacion,
-             u.nombre AS solicitante_nombre, u.correo AS solicitante_correo,
+             u.nombre AS solicitante_nombre, u.correo AS solicitante_correo, u.cedula AS solicitante_cedula,
              ts.nombre AS tipo_nombre, ts.codigo AS tipo_codigo,
              ts.mail_destinatario, ts.mail_cc, ts.mail_asunto, ts.mail_cuerpo
       FROM solicitudes s
@@ -73,10 +83,11 @@ async function enviarCorreoNuevaSolicitud(solicitudId) {
     if (res.rows.length === 0) return;
 
     const row = res.rows[0];
+    const codigoSeguimiento = generarCodigoSeguimiento(row);
 
     // Si la plantilla no tiene parametrizado destinatario, asunto o cuerpo, no enviamos nada
     if (!row.mail_destinatario || !row.mail_asunto || !row.mail_cuerpo) {
-      console.log(`La solicitud ${row.tipo_codigo}-${row.id} no tiene configuración de correo para envío automático.`);
+      console.log(`La solicitud ${codigoSeguimiento} no tiene configuración de correo para envío automático.`);
       return;
     }
 
@@ -85,14 +96,14 @@ async function enviarCorreoNuevaSolicitud(solicitudId) {
     const url = process.env.APP_URL || 'http://127.0.0.1:3000/'; // URL base local del sistema
 
     const asuntoPersonalizado = row.mail_asunto
-      .replace(/{codigo}/g, `${row.tipo_codigo}-${row.id}`)
+      .replace(/{codigo}/g, codigoSeguimiento)
       .replace(/{solicitante}/g, row.solicitante_nombre)
       .replace(/{tipo_solicitud}/g, row.tipo_nombre)
       .replace(/{fecha}/g, fechaStr)
       .replace(/{link}/g, url);
 
     const cuerpoPersonalizado = row.mail_cuerpo
-      .replace(/{codigo}/g, `${row.tipo_codigo}-${row.id}`)
+      .replace(/{codigo}/g, codigoSeguimiento)
       .replace(/{solicitante}/g, row.solicitante_nombre)
       .replace(/{tipo_solicitud}/g, row.tipo_nombre)
       .replace(/{fecha}/g, fechaStr)
@@ -113,7 +124,7 @@ async function enviarCorreoNuevaSolicitud(solicitudId) {
                <br>
                <hr style="border: 0; border-top: 1px solid #E2E8F0;">
                <p style="font-size: 0.8rem; color: #64748B; font-style: italic; margin-bottom: 0;">Este es un correo automático generado por el Sistema de Validación Técnica (SVT).</p>
-             </div>`
+               </div>`
     };
 
     const ccEmails = [];
@@ -129,7 +140,7 @@ async function enviarCorreoNuevaSolicitud(solicitudId) {
       mailOptions.cc = ccEmails;
     }
 
-    console.log(`[Automático] Enviando correo de nueva solicitud ${row.tipo_codigo}-${row.id} a ${row.mail_destinatario}...`);
+    console.log(`[Automático] Enviando correo de nueva solicitud ${codigoSeguimiento} a ${row.mail_destinatario}...`);
     const info = await mailTransporter.sendMail(mailOptions);
     console.log('[Automático] Mensaje enviado con ID: %s', info.messageId);
   } catch (error) {
@@ -142,7 +153,7 @@ async function enviarCorreoProgresoSolicitud(solicitudId, tipoEvento, area, deta
     // 1. Obtener la solicitud con los datos del solicitante y la plantilla del formulario
     const query = `
       SELECT s.id, s.datos, s.fecha_creacion, s.fecha_actualizacion, s.estado,
-             u.nombre AS solicitante_nombre, u.correo AS solicitante_correo,
+             u.nombre AS solicitante_nombre, u.correo AS solicitante_correo, u.cedula AS solicitante_cedula,
              ts.nombre AS tipo_nombre, ts.codigo AS tipo_codigo,
              ts.mail_progreso, ts.mail_cc
       FROM solicitudes s
@@ -154,15 +165,16 @@ async function enviarCorreoProgresoSolicitud(solicitudId, tipoEvento, area, deta
     if (res.rows.length === 0) return;
 
     const row = res.rows[0];
+    const codigoSeguimiento = generarCodigoSeguimiento(row);
 
     // Si la notificación de progreso está explícitamente desactivada (mail_progreso === false), no enviamos nada
     if (row.mail_progreso === false) {
-      console.log(`La solicitud ${row.tipo_codigo}-${row.id} tiene desactivadas las notificaciones de progreso.`);
+      console.log(`La solicitud ${codigoSeguimiento} tiene desactivadas las notificaciones de progreso.`);
       return;
     }
 
     if (!row.solicitante_correo || row.solicitante_correo.trim() === '') {
-      console.log(`El solicitante de la solicitud ${row.tipo_codigo}-${row.id} no tiene un correo electrónico válido registrado.`);
+      console.log(`El solicitante de la solicitud ${codigoSeguimiento} no tiene un correo electrónico válido registrado.`);
       return;
     }
 
@@ -210,52 +222,52 @@ async function enviarCorreoProgresoSolicitud(solicitudId, tipoEvento, area, deta
     let mensajeHTML = '';
 
     if (tipoEvento === 'aprobado_seccion') {
-      asunto = `[SVT] Progreso de Solicitud ${row.tipo_codigo}-${row.id}: ${areaNombre} ha Aprobado`;
+      asunto = `[SVT] Progreso de Solicitud ${codigoSeguimiento}: ${areaNombre} ha Aprobado`;
       tituloHTML = 'Validación de Sección Aprobada';
       mensajeHTML = `Hola <strong>${row.solicitante_nombre}</strong>,<br><br>
                      Te informamos que el área de <strong>${areaNombre}</strong> ha aprobado satisfactoriamente la sección correspondiente a su cargo en tu solicitud.<br><br>
                      <strong>Detalles de la validación:</strong><br>
                      <ul>
-                       <li><strong>Código de solicitud:</strong> ${row.tipo_codigo}-${row.id}</li>
+                       <li><strong>Código de solicitud:</strong> ${codigoSeguimiento}</li>
                        <li><strong>Área:</strong> ${areaNombre}</li>
                        <li><strong>Fecha/Hora:</strong> ${fechaStr}</li>
                        <li><strong>Comentarios del técnico:</strong> ${detallesExtra ? detallesExtra : 'Sin comentarios adicionales.'}</li>
                      </ul>
                      El proceso de revisión continuará con las demás áreas validadoras requeridas.`;
     } else if (tipoEvento === 'observado') {
-      asunto = `[SVT] Acción Requerida: Solicitud ${row.tipo_codigo}-${row.id} con observaciones por ${areaNombre}`;
+      asunto = `[SVT] Acción Requerida: Solicitud ${codigoSeguimiento} con observaciones por ${areaNombre}`;
       tituloHTML = 'Solicitud con Observaciones';
       mensajeHTML = `Hola <strong>${row.solicitante_nombre}</strong>,<br><br>
                      Tu solicitud ha recibido observaciones de corrección por parte del área de <strong>${areaNombre}</strong>.<br><br>
                      <strong>Detalles de las observaciones:</strong><br>
                      <ul>
-                       <li><strong>Código de solicitud:</strong> ${row.tipo_codigo}-${row.id}</li>
+                       <li><strong>Código de solicitud:</strong> ${codigoSeguimiento}</li>
                        <li><strong>Área que observa:</strong> ${areaNombre}</li>
                        <li><strong>Fecha/Hora:</strong> ${fechaStr}</li>
                        <li><strong>Observación técnica:</strong> <span style="color: #c16a54; font-weight: 500;">${detallesExtra}</span></li>
                      </ul>
                      Por favor, ingresa al sistema para realizar las correcciones indicadas y volver a enviar a revisión.`;
     } else if (tipoEvento === 'reapertura') {
-      asunto = `[SVT] Reanudación del Proceso: Solicitud ${row.tipo_codigo}-${row.id} ha sido reabierta`;
+      asunto = `[SVT] Reanudación del Proceso: Solicitud ${codigoSeguimiento} ha sido reabierta`;
       tituloHTML = 'Reapertura de Proceso de Revisión';
       mensajeHTML = `Hola <strong>${row.solicitante_nombre}</strong>,<br><br>
                      Se ha reabierto el proceso de revisión para tu solicitud de servicios técnicos.<br><br>
                      <strong>Detalles de la reapertura:</strong><br>
                      <ul>
-                       <li><strong>Código de solicitud:</strong> ${row.tipo_codigo}-${row.id}</li>
+                       <li><strong>Código de solicitud:</strong> ${codigoSeguimiento}</li>
                        <li><strong>Reabierto por:</strong> ${areaNombre}</li>
                        <li><strong>Fecha/Hora:</strong> ${fechaStr}</li>
                        <li><strong>Motivo de reapertura:</strong> ${detallesExtra}</li>
                      </ul>
                      Todas las aprobaciones de las áreas técnicas han sido restablecidas para una nueva revisión integral.`;
     } else if (tipoEvento === 'aprobado_total') {
-      asunto = `[SVT] ¡Felicidades! Solicitud ${row.tipo_codigo}-${row.id} completamente Aprobada`;
+      asunto = `[SVT] ¡Felicidades! Solicitud ${codigoSeguimiento} completamente Aprobada`;
       tituloHTML = 'Solicitud Completamente Aprobada';
       mensajeHTML = `Hola <strong>${row.solicitante_nombre}</strong>,<br><br>
                      ¡Excelente noticia! Tu solicitud ha culminado el proceso de revisión y ha sido <strong>completamente aprobada</strong> por todas las áreas requeridas.<br><br>
                      <strong>Resumen del trámite:</strong><br>
                      <ul>
-                       <li><strong>Código de solicitud:</strong> ${row.tipo_codigo}-${row.id}</li>
+                       <li><strong>Código de solicitud:</strong> ${codigoSeguimiento}</li>
                        <li><strong>Tipo de solicitud:</strong> ${row.tipo_nombre}</li>
                        <li><strong>Fecha final de aprobación:</strong> ${fechaStr}</li>
                      </ul>
@@ -287,7 +299,7 @@ async function enviarCorreoProgresoSolicitud(solicitudId, tipoEvento, area, deta
       mailOptions.cc = ccEmails;
     }
 
-    console.log(`[Progreso] Enviando correo de progreso (${tipoEvento}) para solicitud ${row.tipo_codigo}-${row.id} a ${row.solicitante_correo}${ccEmails.length > 0 ? ' con CC a ' + ccEmails.join(', ') : ''}...`);
+    console.log(`[Progreso] Enviando correo de progreso (${tipoEvento}) para solicitud ${codigoSeguimiento} a ${row.solicitante_correo}${ccEmails.length > 0 ? ' con CC a ' + ccEmails.join(', ') : ''}...`);
     const info = await mailTransporter.sendMail(mailOptions);
     console.log('[Progreso] Mensaje de progreso enviado con ID: %s', info.messageId);
   } catch (error) {

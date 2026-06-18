@@ -73,20 +73,23 @@ npm install
 2.  Ejecuta el script [`init_db.sql`](file:///c:/Users/david.paredes/Documents/Visual%20Studio/Sistema%20Validacion/Sistema%20v1/init_db.sql) para crear las tablas y las semillas de prueba (usuarios de prueba, tipos de solicitud por defecto).
 
 ### 3. Configurar el Archivo de Entorno `.env`
-Crea un archivo `.env` en la raíz del proyecto (basándote en tus variables de conexión) con la siguiente estructura:
+Crea un archivo `.env` en la raíz del proyecto (basándote en tus variables de conexión) o copia el archivo `.env.example`. Debe tener la siguiente estructura:
 ```env
 PORT=3000
+APP_URL=http://localhost:3000
+
 DB_USER=tu_usuario_postgres
 DB_PASSWORD=tu_contraseña_postgres
 DB_HOST=localhost
 DB_PORT=5432
-DB_DATABASE=sistema_validacion
+DB_NAME=sistema_validacion
 
 # Configuración de correo (SMTP)
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=465
-EMAIL_USER=tu_correo@gmail.com
-EMAIL_PASS=tu_contraseña_de_aplicacion
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=tu_correo@gmail.com
+SMTP_PASS=tu_contraseña_de_aplicacion
+SMTP_FROM="Sistema de Validación Técnica MSP" <tu_correo@gmail.com>
 ```
 
 ### 4. Ejecutar el Proyecto

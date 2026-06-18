@@ -69,12 +69,36 @@
           <div id="bandejas-menu">
             <h3>Bandeja de Entrada</h3>
             <ul>
-              <li><a href="#" class="active" id="tab-bandeja-todos" onclick="filtrarBandeja('todos', this)">📂 Todas las
-                  Solicitudes</a></li>
-              <li id="tab-borrador"><a href="#" onclick="filtrarBandeja('borrador', this)">✏️ Borradores</a></li>
-              <li><a href="#" onclick="filtrarBandeja('en_revision', this)">🔄 En Revisión</a></li>
-              <li><a href="#" onclick="filtrarBandeja('observado', this)">⚠️ Observadas</a></li>
-              <li><a href="#" onclick="filtrarBandeja('aprobado', this)">✅ Aprobadas</a></li>
+              <li>
+                <a href="#" class="active" id="tab-bandeja-todos" onclick="filtrarBandeja('todos', this)">
+                  <span class="nav-label">📂 Todas las Solicitudes</span>
+                  <span id="count-todos" class="sidebar-badge">0</span>
+                </a>
+              </li>
+              <li id="tab-borrador">
+                <a href="#" onclick="filtrarBandeja('borrador', this)">
+                  <span class="nav-label">✏️ Borradores</span>
+                  <span id="count-borrador" class="sidebar-badge">0</span>
+                </a>
+              </li>
+              <li>
+                <a href="#" onclick="filtrarBandeja('en_revision', this)">
+                  <span class="nav-label">🔄 En Revisión</span>
+                  <span id="count-en_revision" class="sidebar-badge">0</span>
+                </a>
+              </li>
+              <li>
+                <a href="#" onclick="filtrarBandeja('observado', this)">
+                  <span class="nav-label">⚠️ Observadas</span>
+                  <span id="count-observado" class="sidebar-badge">0</span>
+                </a>
+              </li>
+              <li>
+                <a href="#" onclick="filtrarBandeja('aprobado', this)">
+                  <span class="nav-label">✅ Aprobadas</span>
+                  <span id="count-aprobado" class="sidebar-badge">0</span>
+                </a>
+              </li>
             </ul>
           </div>
 
@@ -100,6 +124,8 @@
             <h2 id="bandeja-titulo">Todas las Solicitudes</h2>
             <p id="bandeja-descripcion">Consulta el estado actual de los trámites en curso.</p>
           </div>
+
+          <!-- Removido: Tarjetas de Métricas de la Bandeja consolidado en menú lateral -->
 
           <!-- Buscador de Solicitudes -->
           <div style="margin-bottom: 1.2rem; max-width: 400px;">
@@ -202,23 +228,23 @@
             <form id="correo-prueba-form">
               <div class="form-group" style="margin-bottom: 1.2rem;">
                 <label for="mail-destinatario">Destinatario (Para) *</label>
-                <input type="email" id="mail-destinatario" required placeholder="correo.destinatario@msp.gob.ec" style="width: 100%; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem 0.75rem; background: #FFF; outline: none; transition: border-color 0.2s;">
+                <input type="email" id="mail-destinatario" required placeholder="correo.destinatario@msp.gob.ec" style="width: 100%; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem 0.75rem; background: var(--bg-input); outline: none; transition: border-color 0.2s;">
               </div>
 
               <div class="form-group" style="margin-bottom: 1.2rem;">
                 <label for="mail-cc">Copiar a (CC)</label>
-                <input type="text" id="mail-cc" placeholder="correo.copia1@msp.gob.ec, correo.copia2@msp.gob.ec" style="width: 100%; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem 0.75rem; background: #FFF; outline: none;">
+                <input type="text" id="mail-cc" placeholder="correo.copia1@msp.gob.ec, correo.copia2@msp.gob.ec" style="width: 100%; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem 0.75rem; background: var(--bg-input); outline: none;">
                 <span class="form-help-text">Separa múltiples correos con comas.</span>
               </div>
 
               <div class="form-group" style="margin-bottom: 1.2rem;">
                 <label for="mail-asunto">Asunto *</label>
-                <input type="text" id="mail-asunto" required placeholder="Ej: [SVT] Notificación de Solicitud de Prueba" style="width: 100%; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem 0.75rem; background: #FFF; outline: none;">
+                <input type="text" id="mail-asunto" required placeholder="Ej: [SVT] Notificación de Solicitud de Prueba" style="width: 100%; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem 0.75rem; background: var(--bg-input); outline: none;">
               </div>
 
               <div class="form-group" style="margin-bottom: 1.5rem;">
                 <label for="mail-cuerpo">Cuerpo del Correo *</label>
-                <textarea id="mail-cuerpo" required placeholder="Escribe el cuerpo del mensaje..." style="width: 100%; height: 120px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem 0.75rem; background: #FFF; outline: none; resize: vertical; font-family: inherit; line-height: 1.4;"></textarea>
+                <textarea id="mail-cuerpo" required placeholder="Escribe el cuerpo del mensaje..." style="width: 100%; height: 120px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem 0.75rem; background: var(--bg-input); outline: none; resize: vertical; font-family: inherit; line-height: 1.4;"></textarea>
               </div>
 
               <button type="submit" id="btn-enviar-correo" class="btn btn-primary btn-block" style="width: 100%;">⚡ Enviar Correo de Prueba</button>
@@ -331,8 +357,8 @@
                 placeholder="Escribe el motivo del rechazo, recomendación u observación..."></textarea>
               <div style="display:flex; gap:0.5rem; margin-top:0.5rem; flex-wrap:wrap;">
                 <button id="btn-aprobar-con-observacion" class="btn btn-outline btn-sm"
-                  style="flex:1; border-color:var(--success-color); color:var(--success-color); margin:0;">📝 Aprobar con Obs.</button>
-                <button id="btn-observar-tecnico" class="btn btn-danger btn-sm" style="flex:1; margin:0;">⚠️ Registrar Observación y Reportar Observado</button>
+                  style="flex:1; border-color:var(--success-color); color:var(--success-color); margin:0; justify-content: center;">📝 Aprobar con Obs.</button>
+                <button id="btn-observar-tecnico" class="btn btn-danger btn-sm" style="flex:1; margin:0; justify-content: center;">⚠️ Observar Solicitud</button>
               </div>
             </div>
           </div>
@@ -493,7 +519,7 @@
           </div>
 
           <!-- Sección de Notificaciones Automáticas por Correo (Full width) -->
-          <div style="grid-column: 1 / -1; background-color: #F0F9FF; border: 1px solid #BAE6FD; border-radius: var(--radius-md); padding: 1.25rem; margin-top: 1.5rem; box-shadow: inset 0 1px 3px rgba(15,23,42,0.02);">
+          <div style="grid-column: 1 / -1; background-color: var(--celeste-light); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; margin-top: 1.5rem; box-shadow: inset 0 1px 3px rgba(15,23,42,0.02);">
             <div class="section-title" style="margin-bottom: 0.5rem; border-bottom: 1px solid #BAE6FD; padding-bottom: 0.3rem;">✉️ Configuración de Notificación Automática (Correo)</div>
             <p class="form-help-text" style="margin-bottom: 1.2rem; color: var(--text-secondary);">
               Configura un correo para que se envíe automáticamente la primera vez que el solicitante mande a revisión este formulario. Si se dejan en blanco, no se enviará ninguna notificación. 
@@ -542,7 +568,7 @@
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <script type="module" src="js/app.js"></script>
 </body>
 
 </html>

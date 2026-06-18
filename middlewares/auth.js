@@ -1,13 +1,22 @@
 const db = require('../db');
+const { verifyToken } = require('../security');
 
-// Middleware para autenticar usuarios mediante el x-user-id de la cabecera
+// Middleware para autenticar usuarios mediante un token JWT (Authorization: Bearer ...)
 async function autenticar(req, res, next) {
-  const userId = req.headers['x-user-id'];
-  if (!userId) {
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+
+  if (!token) {
     return res.status(401).json({ error: 'No autorizado. Inicie sesión primero.' });
   }
+
+  const payload = verifyToken(token);
+  if (!payload || !payload.sub) {
+    return res.status(401).json({ error: 'Sesión inválida o expirada. Inicie sesión nuevamente.' });
+  }
+
   try {
-    const result = await db.query('SELECT * FROM usuarios WHERE id = $1', [userId]);
+    const result = await db.query('SELECT * FROM usuarios WHERE id = $1', [payload.sub]);
     if (result.rows.length === 0) {
       return res.status(401).json({ error: 'Usuario no encontrado.' });
     }
