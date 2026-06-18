@@ -9,6 +9,12 @@ const db = require('./db');
  */
 async function inicializarAprobaciones(solicitudId, areas, client = db) {
   try {
+    // 1. Eliminar aprobaciones que ya no aplican para esta solicitud (dinámico)
+    await client.query(
+      'DELETE FROM aprobaciones WHERE solicitud_id = $1 AND NOT (area = ANY($2::varchar[]))',
+      [solicitudId, areas]
+    );
+
     const dirUserRes = await client.query("SELECT id FROM usuarios WHERE area = 'director' AND rol = 'tecnico' LIMIT 1");
     const dirUserId = dirUserRes.rows.length > 0 ? dirUserRes.rows[0].id : null;
 
@@ -26,7 +32,7 @@ async function inicializarAprobaciones(solicitudId, areas, client = db) {
           `INSERT INTO aprobaciones (solicitud_id, area, estado, tecnico_id, fecha)
            VALUES ($1, $2, 'pendiente', NULL, NULL)
            ON CONFLICT (solicitud_id, area)
-           DO UPDATE SET estado = 'pendiente', tecnico_id = NULL, fecha = NULL`,
+           DO NOTHING`,
           [solicitudId, area]
         );
       }

@@ -152,6 +152,15 @@ async function ejecutarMigraciones() {
 
       -- 13. Añadir la columna activo a la tabla usuarios para borrado lógico
       ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS activo BOOLEAN NOT NULL DEFAULT TRUE;
+
+      -- 14. Añadir la columna areas_validadoras a la tabla solicitudes para flujo dinámico por solicitud
+      ALTER TABLE solicitudes ADD COLUMN IF NOT EXISTS areas_validadoras JSONB NULL;
+
+      -- Sincronizar solicitudes antiguas que no tienen areas_validadoras
+      UPDATE solicitudes s
+      SET areas_validadoras = ts.areas_validadoras
+      FROM tipos_solicitud ts
+      WHERE s.tipo_solicitud_id = ts.id AND s.areas_validadoras IS NULL;
     `);
 
     // Asegurar que todas las contraseñas queden hasheadas (seguridad).

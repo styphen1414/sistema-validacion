@@ -4,8 +4,51 @@ const db = require('../db');
  * Obtiene el tipo de solicitud para validación al crear.
  */
 async function obtenerTipoSolicitud(tipoId) {
-  const result = await db.query('SELECT areas_validadoras, campos FROM tipos_solicitud WHERE id = $1', [tipoId]);
+  const result = await db.query('SELECT areas_validadoras, campos, codigo FROM tipos_solicitud WHERE id = $1', [tipoId]);
   return result.rows[0];
+}
+
+/**
+ * Evalúa si un campo tiene información de acuerdo a su tipo.
+ */
+function evaluadorDeCondicion(campo, valor) {
+  if (valor === undefined || valor === null) return false;
+
+  // Si es checkbox, debe estar seleccionado (true, 'true', 'X', 'Sí', 'on')
+  if (campo.type === 'checkbox') {
+    return valor === true || valor === 'true' || valor === 'X' || valor === 'Sí' || valor === 'on';
+  }
+
+  // Si es una tabla/grilla de datos, debe contener al menos un registro
+  if (['grid', 'fixed_grid', 'fixed_grid_dynamic_cols', 'fixed_grid_fixed_cols'].includes(campo.type)) {
+    return Array.isArray(valor) && valor.length > 0;
+  }
+
+  // Para cualquier otro tipo, no debe estar vacío
+  return String(valor).trim() !== '';
+}
+
+/**
+ * Calcula dinámicamente las áreas validadoras para una solicitud en base a las condiciones de sus campos.
+ */
+function calcularAreasValidadoras(campos, datos, defaultAreas) {
+  const areas = new Set(defaultAreas || []);
+
+  // Asegurar que 'seguridad' siempre esté presente
+  areas.add('seguridad');
+
+  if (Array.isArray(campos) && datos) {
+    for (const campo of campos) {
+      if (campo.condicion_area && campo.condicion_area.trim() !== '') {
+        const valor = datos[campo.name];
+        if (evaluadorDeCondicion(campo, valor)) {
+          areas.add(campo.condicion_area.trim());
+        }
+      }
+    }
+  }
+
+  return Array.from(areas);
 }
 
 /**
@@ -17,8 +60,8 @@ async function crearSolicitud(solicitanteId, tipoSolicitudId, datos, estado, are
     await client.query('BEGIN');
 
     const insertRes = await client.query(
-      'INSERT INTO solicitudes (solicitante_id, tipo_solicitud_id, datos, estado) VALUES ($1, $2, $3, $4) RETURNING *',
-      [solicitanteId, tipoSolicitudId, datos, estado]
+      'INSERT INTO solicitudes (solicitante_id, tipo_solicitud_id, datos, estado, areas_validadoras) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [solicitanteId, tipoSolicitudId, datos, estado, JSON.stringify(areas)]
     );
     const solicitud = insertRes.rows[0];
 
@@ -62,7 +105,7 @@ async function buscarBandeja(filtros) {
     whereClauses.push(`s.estado != 'borrador'`);
 
     const areaParam = addParam(area);
-    whereClauses.push(`ts.areas_validadoras @> jsonb_build_array(${areaParam}::text)`);
+    whereClauses.push(`s.areas_validadoras @> jsonb_build_array(${areaParam}::text)`);
 
     if (['seguridad', 'gibdd', 'giitrc', 'osi'].includes(area)) {
       const tecnicoParam = addParam(id);
@@ -101,8 +144,8 @@ async function buscarBandeja(filtros) {
   const offsetParam = addParam(offset);
 
   const dataQuery = `
-    SELECT s.id, s.tipo_solicitud_id, s.datos, s.estado, s.fecha_creacion, s.fecha_actualizacion,
-           u.nombre AS solicitante_nombre, u.cedula AS solicitante_cedula, ts.nombre AS tipo_nombre, ts.codigo AS tipo_codigo, ts.areas_validadoras,
+    SELECT s.id, s.tipo_solicitud_id, s.datos, s.estado, s.fecha_creacion, s.fecha_actualizacion, s.areas_validadoras,
+           u.nombre AS solicitante_nombre, u.cedula AS solicitante_cedula, ts.nombre AS tipo_nombre, ts.codigo AS tipo_codigo, ts.campos,
            COALESCE((
              SELECT json_agg(json_build_object('area', a.area, 'estado', a.estado))
              FROM aprobaciones a
@@ -157,7 +200,7 @@ async function obtenerEstadisticas(usuario) {
     whereClauses.push(`s.estado != 'borrador'`);
 
     const areaParam = addParam(area);
-    whereClauses.push(`ts.areas_validadoras @> jsonb_build_array(${areaParam}::text)`);
+    whereClauses.push(`s.areas_validadoras @> jsonb_build_array(${areaParam}::text)`);
 
     if (['seguridad', 'gibdd', 'giitrc', 'osi'].includes(area)) {
       const tecnicoParam = addParam(id);
@@ -204,7 +247,7 @@ async function obtenerEstadisticas(usuario) {
  */
 async function obtenerSolicitudDetalle(id) {
   const result = await db.query(
-    `SELECT s.id, s.solicitante_id, s.tipo_solicitud_id, s.datos, s.estado, s.fecha_creacion, s.fecha_actualizacion,
+    `SELECT s.id, s.solicitante_id, s.tipo_solicitud_id, s.datos, s.estado, s.fecha_creacion, s.fecha_actualizacion, s.areas_validadoras,
             u.nombre AS solicitante_nombre, u.cedula AS solicitante_cedula, ts.nombre AS tipo_nombre, ts.codigo AS tipo_codigo, ts.campos
      FROM solicitudes s
      JOIN usuarios u ON s.solicitante_id = u.id
@@ -264,18 +307,14 @@ async function actualizarSolicitud(id, datos, nuevoEstado, inicializarAprobacion
     await client.query('BEGIN');
 
     await client.query(
-      'UPDATE solicitudes SET datos = $1, estado = $2, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = $3',
-      [datos, nuevoEstado, id]
+      'UPDATE solicitudes SET datos = $1, estado = $2, areas_validadoras = $3, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = $4',
+      [datos, nuevoEstado, JSON.stringify(areasValidadoras), id]
     );
 
     let dispararCorreo = false;
     if (nuevoEstado === 'en_revision') {
-      const apCheck = await client.query('SELECT COUNT(*) FROM aprobaciones WHERE solicitud_id = $1', [id]);
-      const tieneAprobaciones = parseInt(apCheck.rows[0].count, 10) > 0;
-      if (!tieneAprobaciones) {
-        await inicializarAprobaciones(id, areasValidadoras, client);
-        dispararCorreo = true;
-      }
+      await inicializarAprobaciones(id, areasValidadoras, client);
+      dispararCorreo = true;
     }
 
     await client.query('COMMIT');
@@ -433,12 +472,11 @@ async function reabrirProcesoRevision(solicitudId, autorArea, autorId, texto, ar
  */
 async function obtenerDatosPDF(solicitudId) {
   const solRes = await db.query(
-    `SELECT s.id, s.datos, s.estado, s.fecha_creacion, s.fecha_actualizacion,
+    `SELECT s.id, s.datos, s.estado, s.fecha_creacion, s.fecha_actualizacion, s.areas_validadoras,
             u.nombre AS solicitante_nombre, u.cedula AS solicitante_cedula,
             u.cargo AS solicitante_cargo, u.correo AS solicitante_correo,
             u.direccion_proyecto AS solicitante_direccion_proyecto,
-            ts.nombre AS tipo_nombre, ts.codigo AS tipo_codigo, ts.campos,
-            ts.areas_validadoras
+            ts.nombre AS tipo_nombre, ts.codigo AS tipo_codigo, ts.campos
      FROM solicitudes s
      JOIN usuarios u ON s.solicitante_id = u.id
      JOIN tipos_solicitud ts ON s.tipo_solicitud_id = ts.id
@@ -471,6 +509,7 @@ async function obtenerDatosPDF(solicitudId) {
 
 module.exports = {
   obtenerTipoSolicitud,
+  calcularAreasValidadoras,
   crearSolicitud,
   buscarBandeja,
   obtenerEstadisticas,

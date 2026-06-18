@@ -630,12 +630,21 @@ export function actualizarFilaCampoRequerido(select) {
   const firmanteBuilder = row.querySelector('.firmante-options-builder');
   const selectOptsBuilder = row.querySelector('.select-options-builder');
   const fixedGridRowLabelBuilder = row.querySelector('.fixed-grid-row-label-builder');
+  const conditionContainer = row.querySelector('.campo-condition-container');
+  const conditionAreaSelect = row.querySelector('.campo-condicion-area');
 
   const limpiarCols = () => { if (colsBuilder) colsBuilder.querySelector('.grid-columns-list').innerHTML = ''; };
   const limpiarRows = () => { if (rowsBuilder) rowsBuilder.querySelector('.grid-rows-list').innerHTML = ''; };
   const limpiarRowLabel = () => { if (fixedGridRowLabelBuilder) { const inp = fixedGridRowLabelBuilder.querySelector('.campo-row-label'); if (inp) inp.value = ''; } };
   const limpiarFirmante = () => { if (firmanteBuilder) { firmanteBuilder.querySelectorAll('input[type="checkbox"]').forEach(chk => chk.checked = false); } };
   const limpiarSelectOpts = () => { if (selectOptsBuilder) { const inp = selectOptsBuilder.querySelector('.campo-options'); if (inp) inp.value = ''; } };
+
+  if (['title', 'subtitle', 'paragraph', 'info_no_pdf'].includes(select.value)) {
+    if (conditionContainer) conditionContainer.style.display = 'none';
+    if (conditionAreaSelect) conditionAreaSelect.value = '';
+  } else {
+    if (conditionContainer) conditionContainer.style.display = 'inline-flex';
+  }
 
   if (['title', 'subtitle', 'paragraph', 'info_no_pdf'].includes(select.value)) {
     if (reqLabel) reqLabel.style.display = 'none';
@@ -803,6 +812,16 @@ export function agregarFilaCampoVisual(campoObj = null) {
         <label class="campo-required-label">
           <input type="checkbox" class="campo-required" ${reqChecked ? 'checked' : ''}> Obligatorio
         </label>
+        <div class="campo-condition-container" style="display: inline-flex; align-items: center; margin-left: 15px; gap: 5px;">
+          <span style="font-size: 0.8rem; color: var(--text-secondary);">Activar área si se llena:</span>
+          <select class="campo-condicion-area" style="font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-color); background-color: var(--bg-input-secondary); color: var(--text-main);">
+            <option value="">Ninguna</option>
+            <option value="gibdd" ${campoObj && campoObj.condicion_area === 'gibdd' ? 'selected' : ''}>GIBDD (Base de Datos)</option>
+            <option value="giitrc" ${campoObj && campoObj.condicion_area === 'giitrc' ? 'selected' : ''}>GIITRC (Infraestructura)</option>
+            <option value="osi" ${campoObj && campoObj.condicion_area === 'osi' ? 'selected' : ''}>OSI (Seguridad de la Información)</option>
+            <option value="director" ${campoObj && campoObj.condicion_area === 'director' ? 'selected' : ''}>Director DTIC</option>
+          </select>
+        </div>
       </div>
       <div class="firmante-options-builder" style="display:none;">
         <label class="firmante-option-label">
@@ -1059,7 +1078,10 @@ export async function plantillaFormSubmitHandler(e) {
           .replace(/[^a-z0-9_]+/g, '_')
           .replace(/^_+|_+$/g, '');
 
-        const campoData = { name, label, type, required };
+        const condicionAreaSelect = f.querySelector('.campo-condicion-area');
+        const condicion_area = condicionAreaSelect ? condicionAreaSelect.value || null : null;
+
+        const campoData = { name, label, type, required, condicion_area };
 
         if (type === 'firmante' || type === 'firmante_seccion' || type === 'firmante_list') {
           campoData.recoger_cedula = f.querySelector('.campo-recoger-cedula')?.checked || false;
@@ -1219,7 +1241,10 @@ export async function previsualizarPDFPlantilla(e) {
           .replace(/[^a-z0-9_]+/g, '_')
           .replace(/^_+|_+$/g, '');
 
-        const campoData = { name, label, type, required };
+        const condicionAreaSelect = f.querySelector('.campo-condicion-area');
+        const condicion_area = condicionAreaSelect ? condicionAreaSelect.value || null : null;
+
+        const campoData = { name, label, type, required, condicion_area };
 
         if (type === 'firmante' || type === 'firmante_seccion' || type === 'firmante_list') {
           campoData.recoger_cedula = f.querySelector('.campo-recoger-cedula')?.checked || false;

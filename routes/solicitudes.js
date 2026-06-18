@@ -141,12 +141,14 @@ router.post('/', autenticar, async (req, res) => {
       return res.status(400).json({ error: validationError });
     }
 
+    const areasValidadoras = solicitudService.calcularAreasValidadoras(tipo.campos, datos, tipo.areas_validadoras);
+
     const solicitud = await solicitudService.crearSolicitud(
       solicitanteId,
       tipo_solicitud_id,
       datos,
       estado,
-      tipo.areas_validadoras,
+      areasValidadoras,
       inicializarAprobaciones
     );
 
@@ -267,12 +269,14 @@ router.put('/:id', autenticar, async (req, res) => {
 
     const nuevoEstado = (rol === 'solicitante' && enviar) ? 'en_revision' : solicitud.estado;
 
+    const areasValidadoras = solicitudService.calcularAreasValidadoras(solicitud.campos, datos, solicitud.areas_validadoras);
+
     const { dispararCorreo } = await solicitudService.actualizarSolicitud(
       id,
       datos,
       nuevoEstado,
       inicializarAprobaciones,
-      solicitud.areas_validadoras
+      areasValidadoras
     );
 
     if (dispararCorreo) {
