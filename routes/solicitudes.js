@@ -269,7 +269,7 @@ router.put('/:id', autenticar, async (req, res) => {
 
     const nuevoEstado = (rol === 'solicitante' && enviar) ? 'en_revision' : solicitud.estado;
 
-    const areasValidadoras = solicitudService.calcularAreasValidadoras(solicitud.campos, datos, solicitud.areas_validadoras);
+    const areasValidadoras = solicitudService.calcularAreasValidadoras(solicitud.campos, datos, solicitud.plantilla_areas_validadoras);
 
     const { dispararCorreo } = await solicitudService.actualizarSolicitud(
       id,

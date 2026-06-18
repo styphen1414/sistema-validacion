@@ -19,9 +19,27 @@ function evaluadorDeCondicion(campo, valor) {
     return valor === true || valor === 'true' || valor === 'X' || valor === 'Sí' || valor === 'on';
   }
 
-  // Si es una tabla/grilla de datos, debe contener al menos un registro
+  // Si es una tabla/grilla de datos, debe contener al menos un valor de celda no vacío
   if (['grid', 'fixed_grid', 'fixed_grid_dynamic_cols', 'fixed_grid_fixed_cols'].includes(campo.type)) {
-    return Array.isArray(valor) && valor.length > 0;
+    if (!Array.isArray(valor)) return false;
+    const rowLabelKey = campo.row_label || 'Descripción / Fila';
+    for (const row of valor) {
+      if (typeof row === 'object' && row !== null) {
+        for (const [key, val] of Object.entries(row)) {
+          if (key !== rowLabelKey && key !== 'Descripción / Fila') {
+            if (val !== undefined && val !== null && String(val).trim() !== '') {
+              return true;
+            }
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  // Si es un arreglo (ej: text_list)
+  if (Array.isArray(valor)) {
+    return valor.some(v => v !== undefined && v !== null && String(v).trim() !== '');
   }
 
   // Para cualquier otro tipo, no debe estar vacío
@@ -248,7 +266,8 @@ async function obtenerEstadisticas(usuario) {
 async function obtenerSolicitudDetalle(id) {
   const result = await db.query(
     `SELECT s.id, s.solicitante_id, s.tipo_solicitud_id, s.datos, s.estado, s.fecha_creacion, s.fecha_actualizacion, s.areas_validadoras,
-            u.nombre AS solicitante_nombre, u.cedula AS solicitante_cedula, ts.nombre AS tipo_nombre, ts.codigo AS tipo_codigo, ts.campos
+            u.nombre AS solicitante_nombre, u.cedula AS solicitante_cedula, ts.nombre AS tipo_nombre, ts.codigo AS tipo_codigo, ts.campos,
+            ts.areas_validadoras AS plantilla_areas_validadoras
      FROM solicitudes s
      JOIN usuarios u ON s.solicitante_id = u.id
      JOIN tipos_solicitud ts ON s.tipo_solicitud_id = ts.id
