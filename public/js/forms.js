@@ -2,17 +2,22 @@ import { state } from './state.js';
 import { toast, escaparHTML } from './utils.js';
 import { getAuthHeaders } from './api.js';
 
-export function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
-  const camposDinamicosContainer = document.getElementById('campos-dinamicos-container');
-  if (!camposDinamicosContainer) return;
+export function renderizarCamposDinamicos(tipoId, valoresExistentes = null, customContainer = null) {
+  const container = customContainer || document.getElementById('campos-dinamicos-container');
+  if (!container) return;
 
-  camposDinamicosContainer.innerHTML = '';
+  container.innerHTML = '';
   if (!tipoId) {
-    camposDinamicosContainer.innerHTML = '<p class="form-help-text">Selecciona un tipo de solicitud para ver los campos requeridos.</p>';
+    container.innerHTML = '<p class="form-help-text">Selecciona un tipo de solicitud para ver los campos requeridos.</p>';
     return;
   }
 
-  const tipo = state.tiposSolicitud.find(t => t.id === tipoId);
+  let tipo;
+  if (typeof tipoId === 'object' && tipoId !== null) {
+    tipo = tipoId;
+  } else {
+    tipo = state.tiposSolicitud.find(t => t.id === tipoId);
+  }
   if (!tipo) return;
 
   tipo.campos.forEach(campo => {
@@ -20,28 +25,28 @@ export function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
       const titleEl = document.createElement('h3');
       titleEl.className = 'form-section-title';
       titleEl.textContent = campo.label;
-      camposDinamicosContainer.appendChild(titleEl);
+      container.appendChild(titleEl);
       return;
     }
     if (campo.type === 'subtitle') {
       const subtitleEl = document.createElement('h4');
       subtitleEl.className = 'form-section-subtitle';
       subtitleEl.textContent = campo.label;
-      camposDinamicosContainer.appendChild(subtitleEl);
+      container.appendChild(subtitleEl);
       return;
     }
     if (campo.type === 'paragraph') {
       const paragraphEl = document.createElement('p');
       paragraphEl.className = 'form-section-paragraph';
       paragraphEl.textContent = campo.label;
-      camposDinamicosContainer.appendChild(paragraphEl);
+      container.appendChild(paragraphEl);
       return;
     }
     if (campo.type === 'info_no_pdf') {
       const paragraphEl = document.createElement('p');
       paragraphEl.className = 'form-section-paragraph info-no-pdf-paragraph';
       paragraphEl.innerHTML = `<strong>ℹ️ Informativo:</strong> ${campo.label}`;
-      camposDinamicosContainer.appendChild(paragraphEl);
+      container.appendChild(paragraphEl);
       return;
     }
 
@@ -66,7 +71,7 @@ export function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
 
       checkboxContainer.appendChild(input);
       checkboxContainer.appendChild(label);
-      camposDinamicosContainer.appendChild(checkboxContainer);
+      container.appendChild(checkboxContainer);
       return;
     }
 
@@ -357,10 +362,24 @@ export function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
               input.type = 'text';
               input.dataset.type = 'ip';
               input.placeholder = '192.168.1.10';
+              input.maxLength = 15;
+              input.onkeypress = (e) => {
+                if (!/[\d.]/.test(e.key)) e.preventDefault();
+              };
+              input.oninput = (e) => {
+                e.target.value = e.target.value.replace(/[^0-9.]/g, '').slice(0, 15);
+              };
             } else if (colType === 'mac') {
               input.type = 'text';
               input.dataset.type = 'mac';
               input.placeholder = 'AA:BB:CC:DD:EE:FF';
+              input.maxLength = 17;
+              input.onkeypress = (e) => {
+                if (!/[0-9a-fA-F:\-]/.test(e.key)) e.preventDefault();
+              };
+              input.oninput = (e) => {
+                e.target.value = e.target.value.replace(/[^0-9a-fA-F:\-]/g, '').slice(0, 17);
+              };
             } else if (colType === 'time') {
               input.type = 'time';
             } else {
@@ -472,7 +491,7 @@ export function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
         gridContainer.appendChild(addRowBtn);
       }
 
-      camposDinamicosContainer.appendChild(gridContainer);
+      container.appendChild(gridContainer);
       return;
     }
 
@@ -606,7 +625,7 @@ export function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
       addInputBtn.onclick = () => addInputFn();
       listContainer.appendChild(addInputBtn);
 
-      camposDinamicosContainer.appendChild(listContainer);
+      container.appendChild(listContainer);
       return;
     }
 
@@ -809,11 +828,25 @@ export function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
         inputElement.type = 'text';
         inputElement.placeholder = 'Ej: 192.168.1.10';
         inputElement.dataset.type = 'ip';
+        inputElement.maxLength = 15;
+        inputElement.onkeypress = (e) => {
+          if (!/[\d.]/.test(e.key)) e.preventDefault();
+        };
+        inputElement.oninput = (e) => {
+          e.target.value = e.target.value.replace(/[^0-9.]/g, '').slice(0, 15);
+        };
       } else if (campo.type === 'mac') {
         inputElement = document.createElement('input');
         inputElement.type = 'text';
         inputElement.placeholder = 'Ej: AA:BB:CC:DD:EE:FF';
         inputElement.dataset.type = 'mac';
+        inputElement.maxLength = 17;
+        inputElement.onkeypress = (e) => {
+          if (!/[0-9a-fA-F:\-]/.test(e.key)) e.preventDefault();
+        };
+        inputElement.oninput = (e) => {
+          e.target.value = e.target.value.replace(/[^0-9a-fA-F:\-]/g, '').slice(0, 17);
+        };
       } else if (campo.type === 'time') {
         inputElement = document.createElement('input');
         inputElement.type = 'time';
@@ -832,8 +865,66 @@ export function renderizarCamposDinamicos(tipoId, valoresExistentes = null) {
       if (campo.required) inputElement.required = true;
       formGroup.appendChild(inputElement);
     }
-    camposDinamicosContainer.appendChild(formGroup);
+    container.appendChild(formGroup);
   });
+}
+
+function marcarCampoInvalido(campo, colName = null, itemIndex = null) {
+  // 1. Campos dentro de Tablas Dinámicas / Grids
+  if (colName && ['grid', 'fixed_grid', 'fixed_grid_dynamic_cols', 'fixed_grid_fixed_cols'].includes(campo.type)) {
+    const gridContainer = document.querySelector(`.grid-container[data-name="${campo.name}"]`);
+    if (gridContainer) {
+      const rowElements = gridContainer.querySelectorAll('.grid-row');
+      if (itemIndex !== null && rowElements[itemIndex]) {
+        const tr = rowElements[itemIndex];
+        const inputEl = tr.querySelector(`input[data-column="${colName}"], select[data-column="${colName}"]`);
+        if (inputEl) {
+          if (inputEl.type === 'hidden') {
+            inputEl.parentElement.querySelectorAll('input').forEach(el => el.classList.add('is-invalid'));
+          } else {
+            inputEl.classList.add('is-invalid');
+          }
+        }
+      }
+    }
+    return;
+  }
+
+  // 2. Listas Dinámicas (text_list o firmante_list)
+  if (['text_list', 'firmante_list'].includes(campo.type)) {
+    const containerEl = document.querySelector(`.text-list-container[data-name="${campo.name}"]`);
+    if (containerEl) {
+      if (itemIndex !== null) {
+        if (campo.type === 'firmante_list') {
+          const compositeItems = containerEl.querySelectorAll('.text-list-composite-item');
+          if (compositeItems[itemIndex]) {
+            compositeItems[itemIndex].querySelectorAll('input').forEach(el => el.classList.add('is-invalid'));
+          }
+        } else {
+          const listInputs = containerEl.querySelectorAll('.text-list-input');
+          if (listInputs[itemIndex]) {
+            listInputs[itemIndex].classList.add('is-invalid');
+          }
+        }
+      } else {
+        containerEl.classList.add('is-invalid');
+      }
+    }
+    return;
+  }
+
+  // 3. Campos Simples (Standard DOM Input / Select / Textarea / Checkbox / Composites)
+  const inputEl = document.getElementById(`campo-${campo.name}`);
+  if (inputEl) {
+    if (inputEl.type === 'hidden') {
+      const parent = inputEl.parentElement;
+      if (parent) {
+        parent.querySelectorAll('input').forEach(el => el.classList.add('is-invalid'));
+      }
+    } else {
+      inputEl.classList.add('is-invalid');
+    }
+  }
 }
 
 export async function enviarFormulario(enviar) {
@@ -893,14 +984,11 @@ export async function enviarFormulario(enviar) {
 
         const labelInput = row.querySelector('.grid-cell-label-input');
         if (labelInput) {
-          rowData['Descripción / Fila'] = labelInput.value;
-          if (customRowLabel && customRowLabel !== 'Descripción / Fila') {
-            rowData[customRowLabel] = labelInput.value;
-          }
+          rowData[customRowLabel || 'Descripción / Fila'] = labelInput.value;
         }
 
-        const cellInputs = row.querySelectorAll('.grid-cell-input');
-        cellInputs.forEach(input => {
+        const inputs = row.querySelectorAll('.grid-cell-input');
+        inputs.forEach(input => {
           const col = input.dataset.column;
           let val = '';
           if (input.type === 'checkbox') {
@@ -924,6 +1012,17 @@ export async function enviarFormulario(enviar) {
 
   const tipo = state.tiposSolicitud.find(t => t.id === parseInt(tipoSolicitudId, 10));
   if (enviar && tipo) {
+    // Limpiar clases de error previas
+    const containerToClean = camposDinamicosContainer || document.getElementById('campos-dinamicos-container');
+    if (containerToClean) {
+      containerToClean.querySelectorAll('.is-invalid').forEach(el => {
+        el.classList.remove('is-invalid');
+      });
+      containerToClean.querySelectorAll('.text-list-container.is-invalid').forEach(el => {
+        el.classList.remove('is-invalid');
+      });
+    }
+
     let errorMsg = null;
     const firmantesRegistrados = new Set();
     const cedulasRegistradas = new Set();
@@ -941,6 +1040,7 @@ export async function enviarFormulario(enviar) {
           } catch (e) { }
           if (!parsed.desde || parsed.desde.trim() === '' || !parsed.hasta || parsed.hasta.trim() === '') {
             errorMsg = `El rango de fechas de "${campo.label}" es obligatorio (requiere fecha Desde y Hasta).`;
+            marcarCampoInvalido(campo);
             break;
           }
         } else if (campo.type === 'firmante' || campo.type === 'firmante_seccion') {
@@ -950,34 +1050,42 @@ export async function enviarFormulario(enviar) {
           } catch (e) { }
           if (!parsed.nombre || parsed.nombre.trim() === '') {
             errorMsg = `El nombre de "${campo.label}" es obligatorio.`;
+            marcarCampoInvalido(campo);
             break;
           }
           if (campo.recoger_cedula && (!parsed.cedula || parsed.cedula.trim() === '')) {
             errorMsg = `La cédula de "${campo.label}" es obligatoria.`;
+            marcarCampoInvalido(campo);
             break;
           }
           if (campo.recoger_cargo && (!parsed.cargo || parsed.cargo.trim() === '')) {
             errorMsg = `El cargo de "${campo.label}" es obligatorio.`;
+            marcarCampoInvalido(campo);
             break;
           }
         } else if (campo.type === 'text_list' || campo.type === 'firmante_list') {
           if (!Array.isArray(valor) || valor.length === 0) {
             errorMsg = `El campo "${campo.label}" es obligatorio y requiere al menos una entrada.`;
+            marcarCampoInvalido(campo);
             break;
           }
         } else if (['grid', 'fixed_grid', 'fixed_grid_dynamic_cols', 'fixed_grid_fixed_cols'].includes(campo.type)) {
           if (!Array.isArray(valor) || valor.length === 0) {
             errorMsg = `La tabla "${campo.label}" es obligatoria y requiere al menos una fila.`;
+            const gridContainer = document.querySelector(`.grid-container[data-name="${campo.name}"]`);
+            if (gridContainer) gridContainer.classList.add('is-invalid');
             break;
           }
         } else if (campo.type === 'checkbox') {
           if (valor !== 'X') {
             errorMsg = `Debe marcar la casilla de selección "${campo.label}".`;
+            marcarCampoInvalido(campo);
             break;
           }
         } else {
           if (valor === undefined || valor === null || String(valor).trim() === '') {
             errorMsg = `El campo "${campo.label}" es obligatorio.`;
+            marcarCampoInvalido(campo);
             break;
           }
         }
@@ -986,12 +1094,14 @@ export async function enviarFormulario(enviar) {
       if (campo.type === 'text' && valor) {
         if (String(valor).length > 100) {
           errorMsg = `El campo "${campo.label}" no debe superar los 100 caracteres.`;
+          marcarCampoInvalido(campo);
           break;
         }
       }
       if (campo.type === 'textarea' && valor) {
         if (String(valor).length > 500) {
           errorMsg = `El campo "${campo.label}" no debe superar los 500 caracteres (máximo un párrafo).`;
+          marcarCampoInvalido(campo);
           break;
         }
       }
@@ -999,15 +1109,19 @@ export async function enviarFormulario(enviar) {
         const safeTextRegex = /^[a-zA-Z0-9áéíóúüñÁÉÍÓÚÜÑ\s.,():;\-_!?/@]*$/;
         if (!safeTextRegex.test(String(valor))) {
           errorMsg = `El campo "${campo.label}" contiene caracteres no permitidos. Solo se admiten letras, números, espacios y signos básicos: .,():;-_!?/@`;
+          marcarCampoInvalido(campo);
           break;
         }
       }
       if (campo.type === 'text_list' && Array.isArray(valor)) {
+        let itemIndex = 0;
         for (const item of valor) {
           if (String(item).length > 100) {
             errorMsg = `Una de las entradas en "${campo.label}" no debe superar los 100 caracteres.`;
+            marcarCampoInvalido(campo, null, itemIndex);
             break;
           }
+          itemIndex++;
         }
         if (errorMsg) break;
       }
@@ -1022,11 +1136,13 @@ export async function enviarFormulario(enviar) {
           const firmanteNameRegex = /^[a-zA-Z\s]*$/;
           if (!firmanteNameRegex.test(trimmedNombre)) {
             errorMsg = `El nombre de "${campo.label}" solo puede contener letras y espacios (sin eñes, tildes ni caracteres especiales).`;
+            marcarCampoInvalido(campo);
             break;
           }
           const nombreNormalizado = trimmedNombre.toLowerCase().replace(/\s+/g, ' ');
           if (firmantesRegistrados.has(nombreNormalizado)) {
             errorMsg = `El firmante adicional "${trimmedNombre}" está duplicado en la solicitud.`;
+            marcarCampoInvalido(campo);
             break;
           }
           firmantesRegistrados.add(nombreNormalizado);
@@ -1035,6 +1151,7 @@ export async function enviarFormulario(enviar) {
             const cedulaNormalizada = parsed.cedula.trim();
             if (cedulasRegistradas.has(cedulaNormalizada)) {
               errorMsg = `El firmante adicional con cédula "${cedulaNormalizada}" está duplicado en la solicitud.`;
+              marcarCampoInvalido(campo);
               break;
             }
             cedulasRegistradas.add(cedulaNormalizada);
@@ -1043,6 +1160,7 @@ export async function enviarFormulario(enviar) {
       }
 
       if (campo.type === 'firmante_list' && Array.isArray(valor)) {
+        let itemIndex = 0;
         for (const item of valor) {
           let parsed = { nombre: '', cedula: '', cargo: '' };
           try {
@@ -1053,11 +1171,13 @@ export async function enviarFormulario(enviar) {
             const firmanteNameRegex = /^[a-zA-Z\s]*$/;
             if (!firmanteNameRegex.test(trimmedNombre)) {
               errorMsg = `El nombre de uno de los firmantes en "${campo.label}" solo puede contener letras y espacios (sin eñes, tildes ni caracteres especiales).`;
+              marcarCampoInvalido(campo, null, itemIndex);
               break;
             }
             const nombreNormalizado = trimmedNombre.toLowerCase().replace(/\s+/g, ' ');
             if (firmantesRegistrados.has(nombreNormalizado)) {
               errorMsg = `El firmante adicional "${trimmedNombre}" está duplicado en la solicitud.`;
+              marcarCampoInvalido(campo, null, itemIndex);
               break;
             }
             firmantesRegistrados.add(nombreNormalizado);
@@ -1066,11 +1186,13 @@ export async function enviarFormulario(enviar) {
               const cedulaNormalizada = parsed.cedula.trim();
               if (cedulasRegistradas.has(cedulaNormalizada)) {
                 errorMsg = `El firmante adicional con cédula "${cedulaNormalizada}" está duplicado en la solicitud.`;
+                marcarCampoInvalido(campo, null, itemIndex);
                 break;
               }
               cedulasRegistradas.add(cedulaNormalizada);
             }
           }
+          itemIndex++;
         }
         if (errorMsg) break;
       }
@@ -1084,12 +1206,14 @@ export async function enviarFormulario(enviar) {
         if (parsed.cedula && parsed.cedula.trim() !== '') {
           if (!idRegex.test(parsed.cedula.trim())) {
             errorMsg = `La cédula de "${campo.label}" debe contener exactamente 10 dígitos numéricos.`;
+            marcarCampoInvalido(campo);
             break;
           }
         }
       }
 
       if (campo.type === 'firmante_list' && campo.recoger_cedula && Array.isArray(valor)) {
+        let itemIndex = 0;
         for (const item of valor) {
           let parsed = { nombre: '', cedula: '', cargo: '' };
           try {
@@ -1098,28 +1222,13 @@ export async function enviarFormulario(enviar) {
           if (parsed.cedula && parsed.cedula.trim() !== '') {
             if (!idRegex.test(parsed.cedula.trim())) {
               errorMsg = `La cédula de uno de los firmantes en "${campo.label}" debe contener exactamente 10 dígitos numéricos.`;
+              marcarCampoInvalido(campo, null, itemIndex);
               break;
             }
           }
+          itemIndex++;
         }
         if (errorMsg) break;
-      }
-
-      if (campo.type === 'date_range' && valor) {
-        let parsed = { desde: '', hasta: '' };
-        try {
-          parsed = typeof valor === 'object' ? valor : JSON.parse(valor);
-        } catch (e) { }
-        if ((parsed.desde && !parsed.hasta) || (!parsed.desde && parsed.hasta)) {
-          errorMsg = `En el campo "${campo.label}", debe ingresar tanto la fecha "Desde" como la fecha "Hasta".`;
-          break;
-        }
-        if (parsed.desde && parsed.hasta) {
-          if (parsed.hasta < parsed.desde) {
-            errorMsg = `En el campo "${campo.label}", la fecha "Hasta" no puede ser anterior a la fecha "Desde".`;
-            break;
-          }
-        }
       }
 
       if (valor !== undefined && valor !== null && String(valor).trim() !== '') {
@@ -1128,6 +1237,7 @@ export async function enviarFormulario(enviar) {
           const ipRegex = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
           if (!ipRegex.test(valorTrim)) {
             errorMsg = `El campo "${campo.label}" debe ser una dirección IP válida (ej. 192.168.1.10).`;
+            marcarCampoInvalido(campo);
             break;
           }
         }
@@ -1135,6 +1245,7 @@ export async function enviarFormulario(enviar) {
           const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$|^([0-9A-Fa-f]{4}\.){2}[0-9A-Fa-f]{4}$/;
           if (!macRegex.test(valorTrim)) {
             errorMsg = `El campo "${campo.label}" debe ser una dirección MAC válida (ej. AA:BB:CC:DD:EE:FF).`;
+            marcarCampoInvalido(campo);
             break;
           }
         }
@@ -1142,12 +1253,14 @@ export async function enviarFormulario(enviar) {
           const timeRegex = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
           if (!timeRegex.test(valorTrim)) {
             errorMsg = `El campo "${campo.label}" debe ser una hora válida en formato de 24 horas (HH:MM).`;
+            marcarCampoInvalido(campo);
             break;
           }
         }
       }
 
       if (['grid', 'fixed_grid', 'fixed_grid_dynamic_cols', 'fixed_grid_fixed_cols'].includes(campo.type) && Array.isArray(valor)) {
+        let rowIndex = 0;
         for (const row of valor) {
           let columns = [...(campo.columns || [])];
           if (campo.type === 'fixed_grid_dynamic_cols') {
@@ -1173,6 +1286,7 @@ export async function enviarFormulario(enviar) {
                 } catch (e) { }
                 if (!parsed.desde || parsed.desde.trim() === '' || !parsed.hasta || parsed.hasta.trim() === '') {
                   errorMsg = `El rango de fechas de la columna "${colName}" en la tabla "${campo.label}" es obligatorio (requiere fecha Desde y Hasta).`;
+                  marcarCampoInvalido(campo, colName, rowIndex);
                   break;
                 }
               } else if (colType === 'firmante' || colType === 'firmante_seccion') {
@@ -1182,15 +1296,18 @@ export async function enviarFormulario(enviar) {
                 } catch (e) { }
                 if (!parsed.nombre || parsed.nombre.trim() === '') {
                   errorMsg = `El nombre de la columna "${colName}" en la tabla "${campo.label}" es obligatorio.`;
+                  marcarCampoInvalido(campo, colName, rowIndex);
                   break;
                 }
                 if (col.recoger_cedula && (!parsed.cedula || parsed.cedula.trim() === '')) {
                   errorMsg = `La cédula de la columna "${colName}" en la tabla "${campo.label}" es obligatoria.`;
+                  marcarCampoInvalido(campo, colName, rowIndex);
                   break;
                 }
               } else {
                 if (cellVal === undefined || cellVal === null || String(cellVal).trim() === '') {
                   errorMsg = `El campo de la columna "${colName}" en la tabla "${campo.label}" es obligatorio.`;
+                  marcarCampoInvalido(campo, colName, rowIndex);
                   break;
                 }
               }
@@ -1200,27 +1317,32 @@ export async function enviarFormulario(enviar) {
               const cellValTrim = String(cellVal).trim();
               if (colType === 'text' && cellValTrim.length > 100) {
                 errorMsg = `El valor en la columna "${colName}" de la tabla "${campo.label}" no debe superar los 100 caracteres.`;
+                marcarCampoInvalido(campo, colName, rowIndex);
                 break;
               }
               if (colType === 'textarea' && cellValTrim.length > 500) {
                 errorMsg = `El valor en la columna "${colName}" de la tabla "${campo.label}" no debe superar los 500 caracteres.`;
+                marcarCampoInvalido(campo, colName, rowIndex);
                 break;
               }
               if ((colType === 'text' || colType === 'textarea') && cellValTrim) {
                 const safeTextRegex = /^[a-zA-Z0-9áéíóúüñÁÉÍÓÚÜÑ\s.,():;\-_!?/@]*$/;
                 if (!safeTextRegex.test(cellValTrim)) {
                   errorMsg = `El valor en la columna "${colName}" de la tabla "${campo.label}" contiene caracteres no permitidos. Solo se admiten letras, números, espacios y signos básicos: .,():;-_!?/@`;
+                  marcarCampoInvalido(campo, colName, rowIndex);
                   break;
                 }
               }
               if (colType === 'identificacion' && !idRegex.test(cellValTrim)) {
                 errorMsg = `La identificación en la columna "${colName}" de la tabla "${campo.label}" debe contener exactamente 10 dígitos numéricos.`;
+                marcarCampoInvalido(campo, colName, rowIndex);
                 break;
               }
               if (colType === 'email') {
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                 if (!emailRegex.test(cellValTrim)) {
                   errorMsg = `El valor "${cellVal}" en la columna "${colName}" de la tabla "${campo.label}" no es un correo electrónico válido.`;
+                  marcarCampoInvalido(campo, colName, rowIndex);
                   break;
                 }
               }
@@ -1228,6 +1350,7 @@ export async function enviarFormulario(enviar) {
                 const ipRegex = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
                 if (!ipRegex.test(cellValTrim)) {
                   errorMsg = `El valor "${cellVal}" en la columna "${colName}" de la tabla "${campo.label}" debe ser una dirección IP válida (ej. 192.168.1.10).`;
+                  marcarCampoInvalido(campo, colName, rowIndex);
                   break;
                 }
               }
@@ -1235,6 +1358,7 @@ export async function enviarFormulario(enviar) {
                 const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$|^([0-9A-Fa-f]{4}\.){2}[0-9A-Fa-f]{4}$/;
                 if (!macRegex.test(cellValTrim)) {
                   errorMsg = `El valor "${cellVal}" en la columna "${colName}" de la tabla "${campo.label}" debe ser una dirección MAC válida (ej. AA:BB:CC:DD:EE:FF).`;
+                  marcarCampoInvalido(campo, colName, rowIndex);
                   break;
                 }
               }
@@ -1242,6 +1366,7 @@ export async function enviarFormulario(enviar) {
                 const timeRegex = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
                 if (!timeRegex.test(cellValTrim)) {
                   errorMsg = `El valor "${cellVal}" en la columna "${colName}" de la tabla "${campo.label}" debe ser una hora válida en formato de 24 horas (HH:MM).`;
+                  marcarCampoInvalido(campo, colName, rowIndex);
                   break;
                 }
               }
@@ -1252,11 +1377,13 @@ export async function enviarFormulario(enviar) {
                 } catch (e) { }
                 if ((parsed.desde && !parsed.hasta) || (!parsed.desde && parsed.hasta)) {
                   errorMsg = `En la columna "${colName}" de la tabla "${campo.label}", debe ingresar tanto la fecha "Desde" como la fecha "Hasta".`;
+                  marcarCampoInvalido(campo, colName, rowIndex);
                   break;
                 }
                 if (parsed.desde && parsed.hasta) {
                   if (parsed.hasta < parsed.desde) {
                     errorMsg = `En la columna "${colName}" de la tabla "${campo.label}", la fecha "Hasta" no puede ser anterior a la fecha "Desde".`;
+                    marcarCampoInvalido(campo, colName, rowIndex);
                     break;
                   }
                 }
@@ -1271,11 +1398,13 @@ export async function enviarFormulario(enviar) {
                   const firmanteNameRegex = /^[a-zA-Z\s]*$/;
                   if (!firmanteNameRegex.test(trimmedNombre)) {
                     errorMsg = `El nombre del firmante en la columna "${colName}" de la tabla "${campo.label}" solo puede contener letras y espacios (sin eñes, tildes ni caracteres especiales).`;
+                    marcarCampoInvalido(campo, colName, rowIndex);
                     break;
                   }
                   const nombreNormalizado = trimmedNombre.toLowerCase().replace(/\s+/g, ' ');
                   if (firmantesRegistrados.has(nombreNormalizado)) {
                     errorMsg = `El firmante adicional "${trimmedNombre}" está duplicado en la solicitud.`;
+                    marcarCampoInvalido(campo, colName, rowIndex);
                     break;
                   }
                   firmantesRegistrados.add(nombreNormalizado);
@@ -1284,12 +1413,14 @@ export async function enviarFormulario(enviar) {
                     const cedulaNormalizada = parsed.cedula.trim();
                     if (cedulasRegistradas.has(cedulaNormalizada)) {
                       errorMsg = `El firmante adicional con cédula "${cedulaNormalizada}" está duplicado en la solicitud.`;
+                      marcarCampoInvalido(campo, colName, rowIndex);
                       break;
                     }
                     cedulasRegistradas.add(cedulaNormalizada);
 
                     if (!idRegex.test(cedulaNormalizada)) {
                       errorMsg = `La cédula del firmante en la columna "${colName}" de la tabla "${campo.label}" debe tener exactamente 10 dígitos numéricos.`;
+                      marcarCampoInvalido(campo, colName, rowIndex);
                       break;
                     }
                   }
@@ -1298,6 +1429,7 @@ export async function enviarFormulario(enviar) {
             }
           }
           if (errorMsg) break;
+          rowIndex++;
         }
         if (errorMsg) break;
       }

@@ -111,6 +111,31 @@ async function activarUsuario(id) {
   return result.rows[0];
 }
 
+/**
+ * Obtiene un usuario por ID.
+ */
+async function obtenerUsuarioPorId(id) {
+  const result = await db.query(
+    'SELECT id, correo AS username, nombre, rol, area, cedula, cargo, correo, activo FROM usuarios WHERE id = $1',
+    [id]
+  );
+  return result.rows[0];
+}
+
+/**
+ * Verifica si existe un Director activo (excluyendo opcionalmente un ID).
+ */
+async function existeDirectorActivo(excluirId = null) {
+  let queryStr = "SELECT id FROM usuarios WHERE rol = 'tecnico' AND area = 'director' AND activo = TRUE";
+  const params = [];
+  if (excluirId) {
+    queryStr += " AND id != $1";
+    params.push(excluirId);
+  }
+  const result = await db.query(queryStr, params);
+  return result.rows.length > 0;
+}
+
 // --- PLANTILLAS DE FORMULARIOS ---
 
 async function listarTiposSolicitud() {
@@ -184,6 +209,8 @@ module.exports = {
   actualizarUsuario,
   desactivarUsuario,
   activarUsuario,
+  obtenerUsuarioPorId,
+  existeDirectorActivo,
   listarTiposSolicitud,
   actualizarTipoSolicitud,
   crearTipoSolicitud,

@@ -36,7 +36,9 @@ import {
   previsualizarPDFPlantilla,
   filtrarUsuariosAdmin,
   copiarPlantilla,
-  eliminarPlantilla
+  eliminarPlantilla,
+  agregarCampoPorTipo,
+  abrirPreviewLocal
 } from './admin.js';
 
 // --- BANDEJAS: CARGAR Y RENDERIZAR TABLA DE SOLICITUDES ---
@@ -444,6 +446,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 window.filtrarBandeja = filtrarBandeja;
 window.verDetalle = verDetalle;
+window.abrirModal = abrirModal;
 window.cerrarModal = cerrarModal;
 window.abrirEdicion = abrirEdicion;
 window.realizarReapertura = realizarReapertura;
@@ -467,3 +470,5 @@ window.cambiarSelectorRol = cambiarSelectorRol;
 window.descargarPDF = descargarPDF;
 window.cambiarPagina = cambiarPagina;
 window.debouncedBuscar = debouncedBuscar;
+window.agregarCampoPorTipo = agregarCampoPorTipo;
+window.abrirPreviewLocal = abrirPreviewLocal;

@@ -91,5 +91,42 @@ export function generarCodigoSeguimiento(sol) {
   const anio = fechaCreacion.getFullYear();
   const codigoClean = (sol.tipo_codigo || 'FORM').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
   const cedulaClean = (sol.solicitante_cedula || '').trim().replace(/[^a-zA-Z0-9_-]/g, '');
+
+  let areas = [];
+  if (sol.areas_validadoras) {
+    if (Array.isArray(sol.areas_validadoras)) {
+      areas = sol.areas_validadoras;
+    } else if (typeof sol.areas_validadoras === 'string') {
+      try {
+        areas = JSON.parse(sol.areas_validadoras);
+      } catch (e) {}
+    }
+  }
+
+  const acronymMap = {
+    gibdd: 'GBDD',
+    giitrc: 'GIITRC',
+    osi: 'OSI',
+    director: 'DIR'
+  };
+
+  const acronyms = [];
+  if (Array.isArray(areas)) {
+    areas.forEach(area => {
+      const lowerArea = String(area).trim().toLowerCase();
+      if (acronymMap[lowerArea]) {
+        acronyms.push(acronymMap[lowerArea]);
+      }
+    });
+  }
+
+  acronyms.sort();
+
+  if (acronyms.length > 0) {
+    const acronymsStr = acronyms.join('_');
+    return `${codigoClean}_${acronymsStr}_${cedulaClean}_${mes}_${anio}`;
+  }
+
   return `${codigoClean}_${cedulaClean}_${mes}_${anio}`;
 }
+

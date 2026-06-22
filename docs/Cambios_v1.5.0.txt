@@ -1,0 +1,76 @@
+======================================================================
+SISTEMA DE VALIDACIÓN TÉCNICA (SVT) - NOTAS DE CAMBIOS VERSIÓN 1.5.0
+======================================================================
+
+Fecha: 22 de Junio, 2026
+Autor: Antigravity AI & David Paredes
+Versión: 1.5.0 (Creador de Campos, Drag & Drop, Director Único, Toast Slate y Acrónimos de Áreas)
+
+----------------------------------------------------------------------
+DESCRIPCIÓN GENERAL
+----------------------------------------------------------------------
+Esta versión introduce una renovación importante en la experiencia de administración de formularios dinámicos, añade validaciones de datos en tiempo real con marcado de errores en rojo, restringe el rol de Director a una cuenta única, optimiza las alertas visuales del sistema (Toast) e integra de forma interactiva y consistente las siglas de las áreas validadoras condicionales activas en los códigos de seguimiento y notificaciones de correo.
+
+1. **Rediseño del Creador de Campos de Formularios (Drag & Drop):**
+   - Interfaz moderna en 2 columnas: Sidebar izquierdo con tipos de campo y Canvas derecho de edición.
+   - Reemplazo de las flechas de ordenamiento ▲/▼ por la API nativa de **HTML5 Drag and Drop** usando controles de agarre (`⋮⋮`) y transiciones fluidas.
+   - Botón de **👁️ Previsualizar Formulario** para renderizar bajo demanda un prototipo interactivo en modal local, optimizando recursos del servidor y navegador.
+   - Corrección del bug del visualizador interactivo, enrutando correctamente los elementos HTML al modal local en vez de alterar el flujo de solicitudes real.
+
+2. **Mejoras de Visualización y Maquetación:**
+   - Ensanchamiento de las ventanas modales de configuración y vista previa para prevenir desbordes o visualizaciones incompletas.
+   - Ajustes de márgenes y wrapping dinámico en selectores y labels largos para prevenir su aplastamiento en pantallas medianas.
+
+3. **Validación de Director DTIC Único:**
+   - Restricción en base de datos y backend al crear, editar o activar cuentas técnicas del área `director`. Solo se permite una cuenta de Director activa en todo el sistema.
+
+4. **Validaciones Visuales en Caliente y Filtros en Tiempo Real:**
+   - **Campos en Rojo (.is-invalid):** Cualquier entrada, select o celda de tabla (`grid`) inválida se resalta con un borde rojo brillante y sombra de error al enviar la solicitud, limpiándose al reintentar.
+   - **Filtros en inputs de IP y MAC:** Filtrado estricto de pulsaciones (solo dígitos/puntos en IP, y hex/separadores en MAC) y límite estricto de longitud (IP máximo 15, MAC máximo 17 caracteres) tanto en campos independientes como en celdas de tablas.
+
+5. **Rediseño de Notificaciones Toast (Slate High-Contrast):**
+   - Dimensiones aumentadas (ancho de `480px`) para mayor legibilidad.
+   - Fondo premium gris pizarra oscuro (`#0F172A`) con texto blanco y sombras profundas.
+   - Bordes izquierdos gruesos (`6px`) con colores de alta intensidad según el tipo de notificación (Verde esmeralda para éxito, Rojo intenso para error, Celeste cielo para información).
+
+6. **Códigos de Seguimiento con Acrónimos de Áreas Validadoras Activas:**
+   - Modificación de la lógica de generación del código para leer e inyectar de forma ordenada los acrónimos de las áreas técnicas condicionales activas en la solicitud (`gibdd` -> `GBDD`, `giitrc` -> `GIITRC`, `osi` -> `OSI`, `director` -> `DIR`), conservando la compatibilidad original si no hay áreas condicionales (ej. `CODIGO_GBDD_OSI_1712345678_06_2026`).
+   - Aplicado de manera unificada en bandeja, correos, encabezado PDF y en el nombre del archivo de descarga del PDF.
+
+7. **Notificación en Copia (CC) a Técnicos de Áreas Activas:**
+   - Al enviar una nueva solicitud a revisión, Nodemailer consulta a todos los técnicos activos pertenecientes a las áreas validadoras asignadas y los agrega en copia (CC) de la notificación de forma de-duplicada, facilitando la auto-asignación rápida de la solicitud.
+
+----------------------------------------------------------------------
+CAMBIOS REALIZADOS
+----------------------------------------------------------------------
+
+1. Base de Datos & Backend (services/usuarioService.js, mailer.js):
+   - Adición de consultas SQL para validar existencia de directores activos.
+   - Actualización de consultas en `mailer.js` para recuperar `s.areas_validadoras`.
+   - Consulta dinámica para obtener los correos de técnicos de áreas y adjuntarlos en el CC de Nodemailer en `enviarCorreoNuevaSolicitud`.
+
+2. Rutas Express (routes/admin.js & routes/solicitudes.js):
+   - Integración del validador de Director único en endpoints POST, PUT y /activar.
+   - Actualización de la descarga de PDF (filename) en `routes/solicitudes.js` con el nuevo código con acrónimos.
+
+3. PDF Generator (pdfGenerator.js):
+   - Definición local de `generarCodigoSeguimiento(solicitud)` y uso para el encabezado oficial y cálculo de espacios.
+
+4. Hojas de Estilo (public/css/main.css & public/css/dynamic-forms.css):
+   - Rediseño de notificaciones Toast y estilos del Drag and Drop.
+   - Estilo de validación `.is-invalid` (border, glow, transition).
+   - Ensanchamiento de modales (`.modal-content-lg`, `.modal-content-xl`).
+
+5. Lógica del Cliente (public/js/utils.js, forms.js, app.js, modals.js, admin.js):
+   - Lógica Drag & Drop (`dragstart`, `dragover`, `drop`, etc.) para reordenar campos en el constructor de plantillas.
+   - Implementación de previsualización interactiva bajo demanda.
+   - Control de teclado (`keypress`, `input`) para inputs IP y MAC.
+   - Implementación de `marcarCampoInvalido` y limpieza automática.
+   - Función frontend de generación de código de seguimiento actualizada con acrónimos.
+
+----------------------------------------------------------------------
+CÓMO DESPLEGAR / ACTUALIZAR
+----------------------------------------------------------------------
+1. Aplicar la versión '1.5.0' mediante git.
+2. Iniciar el servidor mediante 'npm run dev' o 'npm start'. Las migraciones de base de datos se aplicarán automáticamente.
+======================================================================

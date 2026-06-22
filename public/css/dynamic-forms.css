@@ -291,18 +291,89 @@
 .campo-visual-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem;
+  gap: 0.8rem;
+  padding: 1rem;
   border: 1px solid var(--border-color);
+  border-left: 5px solid var(--border-color);
   border-radius: var(--radius-md);
-  background-color: var(--bg-input);
-  margin-bottom: 0.5rem;
+  background-color: var(--bg-card);
+  margin-bottom: 0.8rem;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s, box-shadow 0.2s, background-color 0.2s;
+  position: relative;
+}
+
+/* Identificadores Visuales por Categoría de Campo */
+.campo-visual-row.type-text,
+.campo-visual-row.type-textarea,
+.campo-visual-row.type-number,
+.campo-visual-row.type-select,
+.campo-visual-row.type-text_list,
+.campo-visual-row.type-ip,
+.campo-visual-row.type-mac,
+.campo-visual-row.type-time,
+.campo-visual-row.type-email,
+.campo-visual-row.type-identificacion,
+.campo-visual-row.type-date {
+  border-left-color: #0EA5E9; /* Azul / Inputs Simples */
+}
+
+.campo-visual-row.type-grid,
+.campo-visual-row.type-fixed_grid,
+.campo-visual-row.type-fixed_grid_dynamic_cols,
+.campo-visual-row.type-fixed_grid_fixed_cols {
+  border-left-color: #10B981; /* Verde / Tablas de Datos */
+}
+
+.campo-visual-row.type-firmante,
+.campo-visual-row.type-firmante_seccion,
+.campo-visual-row.type-firmante_list {
+  border-left-color: #8B5CF6; /* Morado / Flujo de Firmas */
+}
+
+.campo-visual-row.type-title,
+.campo-visual-row.type-subtitle,
+.campo-visual-row.type-paragraph,
+.campo-visual-row.type-info_no_pdf {
+  border-left-color: #64748B; /* Gris / Elementos Informativos */
+}
+
+/* Control de Arrastre (Drag Handle) */
+.drag-handle {
+  cursor: grab;
+  color: var(--text-secondary);
+  font-size: 1.25rem;
+  padding: 0.25rem;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Estados de Arrastre */
+.campo-visual-row.dragging {
+  opacity: 0.4;
+  border-style: dashed;
+  background-color: var(--bg-input-secondary);
+  transform: scale(0.98);
+}
+
+.campo-visual-row.drag-over {
+  border-top: 2px solid var(--accent-color);
+  background-color: var(--bg-input-secondary);
 }
 
 .campo-visual-row select.campo-type {
   padding: 0.35rem 0.5rem;
   font-size: 0.75rem;
   flex: 1;
+  min-width: 220px;
   height: auto;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-color);
@@ -316,6 +387,7 @@
   font-size: 0.8rem;
   height: auto;
   flex: 1;
+  min-width: 250px;
   margin: 0;
   background-color: var(--bg-input);
   border: 1px solid var(--border-color);
@@ -325,9 +397,10 @@
 
 .campo-visual-row .firmante-options-builder {
   margin-top: 0.4rem;
-  padding-left: 0.5rem;
+  margin-left: 80px;
+  padding-left: 0.8rem;
   display: flex;
-  gap: 0.5rem;
+  gap: 1rem;
 }
 
 .campo-visual-row .grid-columns-builder,
@@ -533,7 +606,7 @@
 .campo-visual-label-row {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.8rem;
 }
 
 .campo-visual-label-row span {
@@ -547,7 +620,8 @@
 .campo-visual-type-row {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  flex-wrap: wrap;
+  gap: 0.8rem;
 }
 
 .campo-visual-type-row span {
@@ -633,9 +707,8 @@
 .select-options-builder, .fixed-grid-row-label-builder {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.8rem;
   margin-top: 0.4rem;
-  padding-left: 0.5rem;
 }
 
 .select-options-builder span, .fixed-grid-row-label-builder span {
@@ -730,4 +803,10 @@
   font-size: 0.8rem;
   margin-bottom: 1rem;
   display: block;
+}
+
+/* Campo inválido con borde rojo */
+.is-invalid {
+  border-color: var(--danger-color) !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
 }

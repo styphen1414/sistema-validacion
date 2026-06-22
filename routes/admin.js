@@ -30,6 +30,13 @@ router.post('/usuarios', autenticar, esAdmin, async (req, res) => {
     const isFirma = isOsi ? (firma_documentos === true || firma_documentos === 'true') : false;
     const userActivo = activo !== false && activo !== 'false';
 
+    if (rol === 'tecnico' && area === 'director' && userActivo) {
+      const activeDirectorExists = await usuarioService.existeDirectorActivo();
+      if (activeDirectorExists) {
+        return res.status(400).json({ error: 'No se puede crear la cuenta de Director ya que existe otra cuenta activa.' });
+      }
+    }
+
     const newUser = await usuarioService.crearUsuario({
       password: hashPassword(password),
       nombre,
@@ -66,6 +73,13 @@ router.put('/usuarios/:id', autenticar, esAdmin, async (req, res) => {
     const isOsi = rol === 'tecnico' && area === 'osi';
     const isFirma = isOsi ? (firma_documentos === true || firma_documentos === 'true') : false;
     const userActivo = activo !== false && activo !== 'false';
+
+    if (rol === 'tecnico' && area === 'director' && userActivo) {
+      const activeDirectorExists = await usuarioService.existeDirectorActivo(id);
+      if (activeDirectorExists) {
+        return res.status(400).json({ error: 'No se puede activar la cuenta de Director ya que existe otra cuenta activa.' });
+      }
+    }
 
     const userData = {
       nombre,
@@ -119,6 +133,16 @@ router.delete('/usuarios/:id', autenticar, esAdmin, async (req, res) => {
 router.post('/usuarios/:id/activar', autenticar, esAdmin, async (req, res) => {
   const { id } = req.params;
   try {
+    const user = await usuarioService.obtenerUsuarioPorId(id);
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado.' });
+    }
+    if (user.rol === 'tecnico' && user.area === 'director') {
+      const activeDirectorExists = await usuarioService.existeDirectorActivo(id);
+      if (activeDirectorExists) {
+        return res.status(400).json({ error: 'No se puede activar la cuenta de Director ya que existe otra cuenta activa.' });
+      }
+    }
     const activatedUser = await usuarioService.activarUsuario(id);
     if (!activatedUser) {
       return res.status(404).json({ error: 'Usuario no encontrado.' });

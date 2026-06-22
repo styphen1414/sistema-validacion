@@ -63,14 +63,51 @@ function generarCodigoSeguimiento(sol) {
   const anio = fechaCreacion.getFullYear();
   const codigoClean = (sol.tipo_codigo || 'FORM').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
   const cedulaClean = (sol.solicitante_cedula || '').trim().replace(/[^a-zA-Z0-9_-]/g, '');
+
+  let areas = [];
+  if (sol.areas_validadoras) {
+    if (Array.isArray(sol.areas_validadoras)) {
+      areas = sol.areas_validadoras;
+    } else if (typeof sol.areas_validadoras === 'string') {
+      try {
+        areas = JSON.parse(sol.areas_validadoras);
+      } catch (e) {}
+    }
+  }
+
+  const acronymMap = {
+    gibdd: 'GBDD',
+    giitrc: 'GIITRC',
+    osi: 'OSI',
+    director: 'DIR'
+  };
+
+  const acronyms = [];
+  if (Array.isArray(areas)) {
+    areas.forEach(area => {
+      const lowerArea = String(area).trim().toLowerCase();
+      if (acronymMap[lowerArea]) {
+        acronyms.push(acronymMap[lowerArea]);
+      }
+    });
+  }
+
+  acronyms.sort();
+
+  if (acronyms.length > 0) {
+    const acronymsStr = acronyms.join('_');
+    return `${codigoClean}_${acronymsStr}_${cedulaClean}_${mes}_${anio}`;
+  }
+
   return `${codigoClean}_${cedulaClean}_${mes}_${anio}`;
 }
+
 
 async function enviarCorreoNuevaSolicitud(solicitudId) {
   try {
     // 1. Obtener la solicitud con los datos del solicitante y la plantilla del formulario
     const query = `
-      SELECT s.id, s.datos, s.fecha_creacion,
+      SELECT s.id, s.datos, s.fecha_creacion, s.areas_validadoras,
              u.nombre AS solicitante_nombre, u.correo AS solicitante_correo, u.cedula AS solicitante_cedula,
              ts.nombre AS tipo_nombre, ts.codigo AS tipo_codigo,
              ts.mail_destinatario, ts.mail_cc, ts.mail_asunto, ts.mail_cuerpo
@@ -128,12 +165,47 @@ async function enviarCorreoNuevaSolicitud(solicitudId) {
     };
 
     const ccEmails = [];
+    const seenCcEmails = new Set();
+    const mainRecipientLower = (row.mail_destinatario || '').trim().toLowerCase();
+
+    const addCcEmail = (email) => {
+      const cleaned = (email || '').trim();
+      const lower = cleaned.toLowerCase();
+      if (cleaned && lower !== mainRecipientLower && !seenCcEmails.has(lower)) {
+        seenCcEmails.add(lower);
+        ccEmails.push(cleaned);
+      }
+    };
+
     if (row.mail_cc && row.mail_cc.trim() !== '') {
-      ccEmails.push(...row.mail_cc.split(',').map(email => email.trim()));
+      row.mail_cc.split(',').forEach(email => addCcEmail(email));
     }
-    // Agregar al solicitante en copia si tiene correo
+
     if (row.solicitante_correo && row.solicitante_correo.trim() !== '') {
-      ccEmails.push(row.solicitante_correo.trim());
+      addCcEmail(row.solicitante_correo);
+    }
+
+    // Consultar técnicos de las áreas validadoras de la solicitud
+    let areas = [];
+    if (row.areas_validadoras) {
+      if (Array.isArray(row.areas_validadoras)) {
+        areas = row.areas_validadoras;
+      } else if (typeof row.areas_validadoras === 'string') {
+        try {
+          areas = JSON.parse(row.areas_validadoras);
+        } catch (e) {}
+      }
+    }
+
+    if (areas.length > 0) {
+      const techRes = await db.query(
+        `SELECT DISTINCT correo FROM usuarios 
+         WHERE area = ANY($1) AND rol = 'tecnico' AND activo = true AND correo IS NOT NULL AND correo != ''`,
+        [areas]
+      );
+      techRes.rows.forEach(r => {
+        addCcEmail(r.correo);
+      });
     }
 
     if (ccEmails.length > 0) {
@@ -152,7 +224,7 @@ async function enviarCorreoProgresoSolicitud(solicitudId, tipoEvento, area, deta
   try {
     // 1. Obtener la solicitud con los datos del solicitante y la plantilla del formulario
     const query = `
-      SELECT s.id, s.datos, s.fecha_creacion, s.fecha_actualizacion, s.estado,
+      SELECT s.id, s.datos, s.fecha_creacion, s.fecha_actualizacion, s.estado, s.areas_validadoras,
              u.nombre AS solicitante_nombre, u.correo AS solicitante_correo, u.cedula AS solicitante_cedula,
              ts.nombre AS tipo_nombre, ts.codigo AS tipo_codigo,
              ts.mail_progreso, ts.mail_cc

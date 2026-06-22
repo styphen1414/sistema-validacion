@@ -619,10 +619,20 @@ export function actualizarFilaColumnaFirmante(select) {
     selOpts.style.display = select.value === 'select' ? 'flex' : 'none';
   }
 }
-
 export function actualizarFilaCampoRequerido(select) {
   const row = select.closest('.campo-visual-row');
   if (!row) return;
+
+  // Actualizar clase del borde de acento según la categoría del campo
+  const categories = [
+    'text', 'textarea', 'number', 'checkbox', 'select', 'text_list', 'ip', 'mac', 'time', 'date_range',
+    'grid', 'fixed_grid', 'fixed_grid_dynamic_cols', 'fixed_grid_fixed_cols',
+    'firmante', 'firmante_seccion', 'firmante_list',
+    'title', 'subtitle', 'paragraph', 'info_no_pdf'
+  ];
+  categories.forEach(cat => row.classList.remove(`type-${cat}`));
+  row.classList.add(`type-${select.value}`);
+
   const reqLabel = row.querySelector('.campo-required-label');
   const reqCheckbox = row.querySelector('.campo-required');
   const colsBuilder = row.querySelector('.grid-columns-builder');
@@ -755,18 +765,22 @@ export function agregarFilaCampoVisual(campoObj = null) {
   if (!constructorCamposContainer) return;
 
   const row = document.createElement('div');
-  row.className = 'campo-visual-row';
+  const typeVal = campoObj ? campoObj.type : 'text';
+  row.className = `campo-visual-row type-${typeVal}`;
+  row.setAttribute('draggable', 'true');
   if (campoObj && campoObj.name) {
     row.dataset.name = campoObj.name;
   }
 
   const labelVal = campoObj ? campoObj.label : '';
-  const typeVal = campoObj ? campoObj.type : 'text';
   const reqChecked = campoObj ? campoObj.required : true;
   const recogerCedulaChecked = campoObj ? (campoObj.recoger_cedula || false) : false;
   const recogerCargoChecked = campoObj ? (campoObj.recoger_cargo || false) : false;
 
   row.innerHTML = `
+    <!-- Control de Arrastre (Drag Handle) -->
+    <div class="drag-handle" title="Arrastrar para reordenar">⋮⋮</div>
+
     <div class="campo-visual-content">
       <div class="campo-visual-label-row">
         <span>Etiqueta:</span>
@@ -812,7 +826,7 @@ export function agregarFilaCampoVisual(campoObj = null) {
         <label class="campo-required-label">
           <input type="checkbox" class="campo-required" ${reqChecked ? 'checked' : ''}> Obligatorio
         </label>
-        <div class="campo-condition-container" style="display: inline-flex; align-items: center; margin-left: 15px; gap: 5px;">
+        <div class="campo-condition-container" style="display: inline-flex; align-items: center; gap: 5px;">
           <span style="font-size: 0.8rem; color: var(--text-secondary);">Activar área si se llena:</span>
           <select class="campo-condicion-area" style="font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-color); background-color: var(--bg-input-secondary); color: var(--text-main);">
             <option value="">Ninguna</option>
@@ -855,8 +869,6 @@ export function agregarFilaCampoVisual(campoObj = null) {
       </div>
     </div>
     <div class="campo-visual-actions">
-      <button type="button" class="btn btn-outline btn-sm btn-mover-arriba" title="Mover Arriba">▲</button>
-      <button type="button" class="btn btn-outline btn-sm btn-mover-abajo" title="Mover Abajo">▼</button>
       <button type="button" class="btn btn-outline btn-sm btn-trash-field" title="Eliminar Campo">🗑️</button>
     </div>
   `;
@@ -864,9 +876,48 @@ export function agregarFilaCampoVisual(campoObj = null) {
   // Bind dynamic adders
   row.querySelector('.btn-agregar-columna').onclick = (e) => agregarFilaColumnaVisual(e.target);
   row.querySelector('.btn-agregar-fila').onclick = (e) => agregarFilaVisual(e.target);
-  row.querySelector('.btn-mover-arriba').onclick = (e) => moverCampoVisualArriba(e.target);
-  row.querySelector('.btn-mover-abajo').onclick = (e) => moverCampoVisualAbajo(e.target);
   row.querySelector('.btn-trash-field').onclick = (e) => eliminarFilaCampoVisual(e.target);
+
+  // Native HTML5 Drag and Drop event listeners for card reordering
+  row.addEventListener('dragstart', (e) => {
+    row.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', ''); // Required for Firefox support
+  });
+
+  row.addEventListener('dragend', () => {
+    row.classList.remove('dragging');
+    const allRows = constructorCamposContainer.querySelectorAll('.campo-visual-row');
+    allRows.forEach(r => r.classList.remove('drag-over'));
+  });
+
+  row.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    const draggingRow = constructorCamposContainer.querySelector('.campo-visual-row.dragging');
+    if (!draggingRow || draggingRow === row) return;
+    row.classList.add('drag-over');
+  });
+
+  row.addEventListener('dragleave', () => {
+    row.classList.remove('drag-over');
+  });
+
+  row.addEventListener('drop', (e) => {
+    e.preventDefault();
+    row.classList.remove('drag-over');
+    const draggingRow = constructorCamposContainer.querySelector('.campo-visual-row.dragging');
+    if (!draggingRow || draggingRow === row) return;
+
+    const allRows = Array.from(constructorCamposContainer.querySelectorAll('.campo-visual-row'));
+    const draggingIndex = allRows.indexOf(draggingRow);
+    const dropIndex = allRows.indexOf(row);
+
+    if (draggingIndex < dropIndex) {
+      constructorCamposContainer.insertBefore(draggingRow, row.nextElementSibling);
+    } else {
+      constructorCamposContainer.insertBefore(draggingRow, row);
+    }
+  });
 
   constructorCamposContainer.appendChild(row);
 
@@ -887,11 +938,15 @@ export function agregarFilaCampoVisual(campoObj = null) {
 
   const selectEl = row.querySelector('.campo-type');
   actualizarFilaCampoRequerido(selectEl);
+  actualizarContadorCampos();
 }
 
 export function eliminarFilaCampoVisual(button) {
   const row = button.closest('.campo-visual-row');
-  if (row) row.remove();
+  if (row) {
+    row.remove();
+    actualizarContadorCampos();
+  }
 }
 
 export function moverCampoVisualArriba(button) {
@@ -976,6 +1031,8 @@ export function abrirModalPlantilla(formObj = null) {
     agregarFilaCampoVisual();
   }
 
+  actualizarContadorCampos();
+
   if (modalPlantilla) modalPlantilla.classList.remove('hidden');
 }
 
@@ -1020,6 +1077,8 @@ export function copiarPlantilla(formObj) {
 
   formObj.campos.forEach(c => agregarFilaCampoVisual(c));
 
+  actualizarContadorCampos();
+
   if (modalPlantilla) modalPlantilla.classList.remove('hidden');
 }
 
@@ -1059,91 +1118,7 @@ export async function plantillaFormSubmitHandler(e) {
     return;
   }
 
-  const camposObj = [];
-  if (constructorCamposContainer) {
-    const filas = constructorCamposContainer.querySelectorAll('.campo-visual-row');
-    filas.forEach(f => {
-      const labelInput = f.querySelector('.campo-label');
-      const typeSelect = f.querySelector('.campo-type');
-      const requiredCheckbox = f.querySelector('.campo-required');
-
-      const label = labelInput ? labelInput.value.trim() : '';
-      const type = typeSelect ? typeSelect.value : 'text';
-      const required = requiredCheckbox ? requiredCheckbox.checked : false;
-
-      if (label !== '') {
-        const name = f.dataset.name || label
-          .toLowerCase()
-          .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-          .replace(/[^a-z0-9_]+/g, '_')
-          .replace(/^_+|_+$/g, '');
-
-        const condicionAreaSelect = f.querySelector('.campo-condicion-area');
-        const condicion_area = condicionAreaSelect ? condicionAreaSelect.value || null : null;
-
-        const campoData = { name, label, type, required, condicion_area };
-
-        if (type === 'firmante' || type === 'firmante_seccion' || type === 'firmante_list') {
-          campoData.recoger_cedula = f.querySelector('.campo-recoger-cedula')?.checked || false;
-          campoData.recoger_cargo = f.querySelector('.campo-recoger-cargo')?.checked || false;
-        }
-
-        if (type === 'select') {
-          const optionsInput = f.querySelector('.campo-options');
-          campoData.options = optionsInput ? optionsInput.value.split(',').map(o => o.trim()).filter(o => o !== '') : [];
-        }
-
-        if (type === 'grid' || type === 'fixed_grid' || type === 'fixed_grid_dynamic_cols' || type === 'fixed_grid_fixed_cols') {
-          const columns = [];
-          const colRows = f.querySelectorAll('.columna-visual-row');
-          colRows.forEach(colRow => {
-            const colNameInput = colRow.querySelector('.col-name');
-            const colTypeSelect = colRow.querySelector('.col-type');
-            const colRequiredCheckbox = colRow.querySelector('.col-required');
-            const colName = colNameInput ? colNameInput.value.trim() : '';
-            const colType = colTypeSelect ? colTypeSelect.value : 'text';
-            if (colName !== '') {
-              const colObj = {
-                name: colName,
-                type: colType,
-                required: colRequiredCheckbox ? colRequiredCheckbox.checked : false
-              };
-              if (colType === 'firmante' || colType === 'firmante_seccion') {
-                colObj.recoger_cedula = colRow.querySelector('.col-recoger-cedula')?.checked || false;
-                colObj.recoger_cargo = colRow.querySelector('.col-recoger-cargo')?.checked || false;
-              }
-              if (colType === 'select') {
-                const colOptionsInput = colRow.querySelector('.col-options');
-                colObj.options = colOptionsInput ? colOptionsInput.value.split(',').map(o => o.trim()).filter(o => o !== '') : [];
-              }
-              columns.push(colObj);
-            }
-          });
-          campoData.columns = columns;
-
-          if (type === 'fixed_grid_dynamic_cols' || type === 'fixed_grid_fixed_cols') {
-            const rows = [];
-            const rowRows = f.querySelectorAll('.fila-visual-row');
-            rowRows.forEach(rowRow => {
-              const rowNameInput = rowRow.querySelector('.row-name');
-              const rowName = rowNameInput ? rowNameInput.value.trim() : '';
-              if (rowName !== '') {
-                rows.push(rowName);
-              }
-            });
-            campoData.rows = rows;
-
-            const rowLabelInput = f.querySelector('.campo-row-label');
-            if (rowLabelInput) {
-              campoData.row_label = rowLabelInput.value.trim() || 'Descripción / Fila';
-            }
-          }
-        }
-
-        camposObj.push(campoData);
-      }
-    });
-  }
+  const camposObj = obtenerCamposDeConstructor();
 
   if (camposObj.length === 0) {
     toast('Debes agregar al menos un campo con título al formulario.');
@@ -1355,5 +1330,129 @@ export async function previsualizarPDFPlantilla(e) {
       btnPreviewPlantilla.disabled = false;
       btnPreviewPlantilla.innerHTML = originalText;
     }
+  }
+}
+
+export function actualizarContadorCampos() {
+  const container = document.getElementById('constructor-campos-container');
+  const badge = document.getElementById('campos-count-badge');
+  if (container && badge) {
+    const count = container.querySelectorAll('.campo-visual-row').length;
+    badge.textContent = count;
+  }
+}
+
+export function obtenerCamposDeConstructor() {
+  const constructorCamposContainer = document.getElementById('constructor-campos-container');
+  const camposObj = [];
+  if (!constructorCamposContainer) return camposObj;
+
+  const filas = constructorCamposContainer.querySelectorAll('.campo-visual-row');
+  filas.forEach(f => {
+    const labelInput = f.querySelector('.campo-label');
+    const typeSelect = f.querySelector('.campo-type');
+    const requiredCheckbox = f.querySelector('.campo-required');
+
+    const label = labelInput ? labelInput.value.trim() : '';
+    const type = typeSelect ? typeSelect.value : 'text';
+    const required = requiredCheckbox ? requiredCheckbox.checked : false;
+
+    if (label !== '') {
+      const name = f.dataset.name || label
+        .toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9_]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+
+      const condicionAreaSelect = f.querySelector('.campo-condicion-area');
+      const condicion_area = condicionAreaSelect ? condicionAreaSelect.value || null : null;
+
+      const campoData = { name, label, type, required, condicion_area };
+
+      if (type === 'firmante' || type === 'firmante_seccion' || type === 'firmante_list') {
+        campoData.recoger_cedula = f.querySelector('.campo-recoger-cedula')?.checked || false;
+        campoData.recoger_cargo = f.querySelector('.campo-recoger-cargo')?.checked || false;
+      }
+
+      if (type === 'select') {
+        const optionsInput = f.querySelector('.campo-options');
+        campoData.options = optionsInput ? optionsInput.value.split(',').map(o => o.trim()).filter(o => o !== '') : [];
+      }
+
+      if (type === 'grid' || type === 'fixed_grid' || type === 'fixed_grid_dynamic_cols' || type === 'fixed_grid_fixed_cols') {
+        const columns = [];
+        const colRows = f.querySelectorAll('.columna-visual-row');
+        colRows.forEach(colRow => {
+          const colNameInput = colRow.querySelector('.col-name');
+          const colTypeSelect = colRow.querySelector('.col-type');
+          const colRequiredCheckbox = colRow.querySelector('.col-required');
+          const colName = colNameInput ? colNameInput.value.trim() : '';
+          const colType = colTypeSelect ? colTypeSelect.value : 'text';
+          if (colName !== '') {
+            const colObj = {
+              name: colName,
+              type: colType,
+              required: colRequiredCheckbox ? colRequiredCheckbox.checked : false
+            };
+            if (colType === 'firmante' || colType === 'firmante_seccion') {
+              colObj.recoger_cedula = colRow.querySelector('.col-recoger-cedula')?.checked || false;
+              colObj.recoger_cargo = colRow.querySelector('.col-recoger-cargo')?.checked || false;
+            }
+            if (colType === 'select') {
+              const colOptionsInput = colRow.querySelector('.col-options');
+              colObj.options = colOptionsInput ? colOptionsInput.value.split(',').map(o => o.trim()).filter(o => o !== '') : [];
+            }
+            columns.push(colObj);
+          }
+        });
+        campoData.columns = columns;
+
+        if (type === 'fixed_grid_dynamic_cols' || type === 'fixed_grid_fixed_cols') {
+          const rows = [];
+          const rowRows = f.querySelectorAll('.fila-visual-row');
+          rowRows.forEach(rowRow => {
+            const rowNameInput = rowRow.querySelector('.row-name');
+            const rowName = rowNameInput ? rowNameInput.value.trim() : '';
+            if (rowName !== '') {
+              rows.push(rowName);
+            }
+          });
+          campoData.rows = rows;
+
+          const rowLabelInput = f.querySelector('.campo-row-label');
+          if (rowLabelInput) {
+            campoData.row_label = rowLabelInput.value.trim() || 'Descripción / Fila';
+          }
+        }
+      }
+
+      camposObj.push(campoData);
+    }
+  });
+
+  return camposObj;
+}
+
+export function agregarCampoPorTipo(tipo) {
+  agregarFilaCampoVisual({ type: tipo, required: true, label: '' });
+}
+
+export async function abrirPreviewLocal() {
+  const campos = obtenerCamposDeConstructor();
+  if (campos.length === 0) {
+    toast('Debes agregar al menos un campo con etiqueta para poder previsualizar.');
+    return;
+  }
+
+  const { renderizarCamposDinamicos } = await import('./forms.js');
+  const previewContainer = document.getElementById('preview-local-campos-container');
+  const modalPreview = document.getElementById('modal-preview-local');
+
+  if (previewContainer && modalPreview) {
+    const fakeTipo = {
+      campos: campos
+    };
+    renderizarCamposDinamicos(fakeTipo, null, previewContainer);
+    modalPreview.classList.remove('hidden');
   }
 }

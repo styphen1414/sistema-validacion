@@ -6,6 +6,7 @@ import { renderizarCamposDinamicos } from './forms.js';
 export function abrirModal(id) {
   const modal = document.getElementById(id);
   if (modal) modal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
 }
 
 export function cerrarModal(id) {
@@ -18,6 +19,12 @@ export function cerrarModal(id) {
     if (state.activeSolicitudId) {
       verDetalle(state.activeSolicitudId);
     }
+  }
+  
+  // Restore scroll only if no modals are open
+  const openModals = document.querySelectorAll('.modal:not(.hidden)');
+  if (openModals.length === 0) {
+    document.body.style.overflow = '';
   }
 }
 
@@ -482,7 +489,7 @@ export async function verDetalle(id, isRefresh = false) {
     }
 
     if (!isRefresh && modalDetalle) {
-      modalDetalle.classList.remove('hidden');
+      abrirModal('modal-detalle');
     }
   } catch (error) {
     if (!isRefresh) toast('Error al cargar detalle de solicitud: ' + error.message);
@@ -493,17 +500,17 @@ export function abrirEdicion(solicitudId, tipoId) {
   const sol = state.todasLasSolicitudes.find(s => s.id === solicitudId);
   if (!sol) return;
 
-  // Hide modal-detalle without clearing state.activeSolicitudId
-  const modalDetalle = document.getElementById('modal-detalle');
-  if (modalDetalle) modalDetalle.classList.add('hidden');
-
-  const solicitudIdInput = document.getElementById('solicitud-id');
-  const selectTipoSolicitud = document.getElementById('select-tipo-solicitud');
   const btnGuardarBorrador = document.getElementById('btn-guardar-borrador');
   const btnEnviarRevision = document.getElementById('btn-enviar-revision');
+  const modalDetalle = document.getElementById('modal-detalle');
   const modalSolicitud = document.getElementById('modal-solicitud');
+  const selectTipoSolicitud = document.getElementById('select-tipo-solicitud');
+  const solicitudIdInput = document.getElementById('solicitud-id');
+
+  if (modalDetalle) modalDetalle.classList.add('hidden');
 
   if (solicitudIdInput) solicitudIdInput.value = sol.id;
+
   if (selectTipoSolicitud) {
     selectTipoSolicitud.value = tipoId;
     selectTipoSolicitud.disabled = true;
@@ -522,7 +529,7 @@ export function abrirEdicion(solicitudId, tipoId) {
     if (btnEnviarRevision) btnEnviarRevision.textContent = 'Guardar Cambios';
   }
 
-  if (modalSolicitud) modalSolicitud.classList.remove('hidden');
+  abrirModal('modal-solicitud');
 }
 
 export async function realizarAprobacion(solicitudId) {
