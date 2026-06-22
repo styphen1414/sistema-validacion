@@ -1250,7 +1250,7 @@ export async function enviarFormulario(enviar) {
           }
         }
         if (campo.type === 'time') {
-          const timeRegex = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
+          const timeRegex = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/;
           if (!timeRegex.test(valorTrim)) {
             errorMsg = `El campo "${campo.label}" debe ser una hora válida en formato de 24 horas (HH:MM).`;
             marcarCampoInvalido(campo);
@@ -1363,7 +1363,7 @@ export async function enviarFormulario(enviar) {
                 }
               }
               if (colType === 'time') {
-                const timeRegex = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
+                const timeRegex = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/;
                 if (!timeRegex.test(cellValTrim)) {
                   errorMsg = `El valor "${cellVal}" en la columna "${colName}" de la tabla "${campo.label}" debe ser una hora válida en formato de 24 horas (HH:MM).`;
                   marcarCampoInvalido(campo, colName, rowIndex);

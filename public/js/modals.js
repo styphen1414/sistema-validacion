@@ -165,6 +165,13 @@ export async function verDetalle(id, isRefresh = false) {
 
                 if (colType === 'firmante' || colType === 'firmante_seccion') {
                   td.textContent = formatearValorFirmante(val);
+                } else if (colType === 'time' && val) {
+                  const parts = String(val).split(':');
+                  if (parts.length >= 2) {
+                    td.textContent = `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+                  } else {
+                    td.textContent = val;
+                  }
                 } else if (colType === 'date_range') {
                   let formattedVal = 'N/A';
                   if (val) {
@@ -266,6 +273,11 @@ export async function verDetalle(id, isRefresh = false) {
           let valor = rawVal !== undefined && rawVal !== null && rawVal !== '' ? rawVal : 'N/A';
           if (campo.type === 'firmante' || campo.type === 'firmante_seccion') {
             valor = formatearValorFirmante(rawVal);
+          } else if (campo.type === 'time' && valor !== 'N/A') {
+            const parts = String(valor).split(':');
+            if (parts.length >= 2) {
+              valor = `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+            }
           }
           valItem.innerHTML = `
             <strong>${escaparHTML(campo.label)}:</strong>

@@ -40,6 +40,10 @@ Esta versión introduce una renovación importante en la experiencia de administ
 7. **Notificación en Copia (CC) a Técnicos de Áreas Activas:**
    - Al enviar una nueva solicitud a revisión, Nodemailer consulta a todos los técnicos activos pertenecientes a las áreas validadoras asignadas y los agrega en copia (CC) de la notificación de forma de-duplicada, facilitando la auto-asignación rápida de la solicitud.
 
+8. **Corrección de Validación y Formato de Campos de Hora (time):**
+   - Flexibilización del regex de validación en frontend para aceptar segundos opcionalmente (`HH:MM:SS`), evitando que falle con inputs nativos de tipo hora del navegador.
+   - Formateo de los valores de hora a formato limpio `HH:MM` tanto al desplegar el detalle de la solicitud en el modal de la interfaz como al generar el reporte PDF impreso (campos simples y celdas de tablas/grillas).
+
 ----------------------------------------------------------------------
 CAMBIOS REALIZADOS
 ----------------------------------------------------------------------
@@ -55,6 +59,7 @@ CAMBIOS REALIZADOS
 
 3. PDF Generator (pdfGenerator.js):
    - Definición local de `generarCodigoSeguimiento(solicitud)` y uso para el encabezado oficial y cálculo de espacios.
+   - Formateo del campo de hora (`time`) a formato HH:MM (simple y en tablas) al renderizar el reporte PDF.
 
 4. Hojas de Estilo (public/css/main.css & public/css/dynamic-forms.css):
    - Rediseño de notificaciones Toast y estilos del Drag and Drop.
@@ -67,6 +72,8 @@ CAMBIOS REALIZADOS
    - Control de teclado (`keypress`, `input`) para inputs IP y MAC.
    - Implementación de `marcarCampoInvalido` y limpieza automática.
    - Función frontend de generación de código de seguimiento actualizada con acrónimos.
+   - Actualización de `timeRegex` en `forms.js` para admitir segundos opcionalmente.
+   - Formateo de campos de hora en el modal de detalle (`modals.js`) para desplegar HH:MM.
 
 ----------------------------------------------------------------------
 CÓMO DESPLEGAR / ACTUALIZAR

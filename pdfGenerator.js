@@ -451,6 +451,11 @@ function generarReportePDFInternal(doc, solicitud, aprobaciones, directorSigner)
             val = val || '';
             if (colType === 'firmante' || colType === 'firmante_seccion') {
               val = formatearValorFirmanteBackend(val);
+            } else if (colType === 'time' && val) {
+              const parts = String(val).split(':');
+              if (parts.length >= 2) {
+                val = `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+              }
             } else if (colType === 'date_range') {
               let formattedVal = 'N/A';
               if (val) {
@@ -546,7 +551,13 @@ function generarReportePDFInternal(doc, solicitud, aprobaciones, directorSigner)
         .font('Helvetica').fillColor('#334155').text(`${valor}`)
         .moveDown(0.5);
     } else {
-      const valor = datos[campo.name] !== undefined && datos[campo.name] !== null && datos[campo.name] !== '' ? datos[campo.name] : 'N/A';
+      let valor = datos[campo.name] !== undefined && datos[campo.name] !== null && datos[campo.name] !== '' ? datos[campo.name] : 'N/A';
+      if (campo.type === 'time' && valor !== 'N/A') {
+        const parts = String(valor).split(':');
+        if (parts.length >= 2) {
+          valor = `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+        }
+      }
       doc.font('Helvetica-Bold').fillColor('#1E3A8A').text(`${campo.label}: `, { continued: true })
         .font('Helvetica').fillColor('#334155').text(`${valor}`)
         .moveDown(0.5);
