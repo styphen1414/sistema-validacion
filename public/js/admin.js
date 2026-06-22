@@ -147,6 +147,9 @@ export function renderUsuariosAdmin(usuarios) {
     return;
   }
 
+  const searchInput = document.getElementById('buscador-usuarios');
+  const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
   const segmentos = [
     { nombre: 'Administradores', filtro: usr => usr.rol === 'admin', icon: '⚙️' },
     { nombre: 'Director DTIC MSP', filtro: usr => usr.rol === 'tecnico' && usr.area === 'director', icon: '👔' },
@@ -160,8 +163,11 @@ export function renderUsuariosAdmin(usuarios) {
   segmentos.forEach(seg => {
     const filtered = usuarios.filter(seg.filtro);
 
+    // Omitir segmentos vacíos si hay un criterio de búsqueda activo
+    if (query && filtered.length === 0) return;
+
     const segmentDiv = document.createElement('div');
-    segmentDiv.className = 'admin-segment-card collapsed';
+    segmentDiv.className = query ? 'admin-segment-card' : 'admin-segment-card collapsed';
     segmentDiv.style.marginBottom = '1.5rem';
 
     const header = document.createElement('div');

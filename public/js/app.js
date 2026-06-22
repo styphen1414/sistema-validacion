@@ -472,3 +472,4 @@ window.cambiarPagina = cambiarPagina;
 window.debouncedBuscar = debouncedBuscar;
 window.agregarCampoPorTipo = agregarCampoPorTipo;
 window.abrirPreviewLocal = abrirPreviewLocal;
+window.filtrarUsuariosAdmin = filtrarUsuariosAdmin;
