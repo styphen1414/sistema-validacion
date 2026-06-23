@@ -550,7 +550,7 @@ export function agregarFilaColumnaVisual(target, colObj = null) {
   const recogerCarChecked = colObj ? (colObj.recoger_cargo || false) : false;
 
   colRow.innerHTML = `
-    <input type="text" class="col-name" placeholder="Nombre Columna" required value="${colName.replace(/"/g, '&quot;')}">
+    <input type="text" class="col-name" placeholder="Nombre Columna" value="${colName.replace(/"/g, '&quot;')}">
     <select class="col-type" onchange="actualizarFilaColumnaFirmante(this)">
       <optgroup label="Datos Básicos">
         <option value="text" ${colType === 'text' ? 'selected' : ''}>Texto</option>
@@ -606,7 +606,7 @@ export function agregarFilaVisual(target, rowVal = '') {
   rRow.className = 'fila-visual-row';
 
   rRow.innerHTML = `
-    <input type="text" class="row-name" placeholder="Nombre / Etiqueta de la Fila" required value="${rowVal.replace(/"/g, '&quot;')}">
+    <input type="text" class="row-name" placeholder="Nombre / Etiqueta de la Fila" value="${rowVal.replace(/"/g, '&quot;')}">
     <button type="button" class="btn btn-outline btn-sm btn-trash-sm" onclick="this.parentElement.remove()">
       🗑️
     </button>
@@ -790,7 +790,7 @@ export function agregarFilaCampoVisual(campoObj = null) {
     <div class="campo-visual-content">
       <div class="campo-visual-label-row">
         <span>Etiqueta:</span>
-        <input type="text" class="campo-label" placeholder="Ej: Nombre Servidor, Justificación, etc." required value="${labelVal.replace(/"/g, '&quot;')}">
+        <input type="text" class="campo-label" placeholder="Ej: Nombre Servidor, Justificación, etc." value="${labelVal.replace(/"/g, '&quot;')}">
       </div>
       <div class="campo-visual-type-row">
         <span>Tipo Campo:</span>
@@ -1124,7 +1124,20 @@ export async function plantillaFormSubmitHandler(e) {
     return;
   }
 
-  const camposObj = obtenerCamposDeConstructor();
+  let camposObj;
+  try {
+    camposObj = obtenerCamposDeConstructor(true);
+  } catch (err) {
+    toast(err.message);
+    abrirModal('modal-campos-plantilla');
+    if (err.elementToFocus) {
+      setTimeout(() => {
+        err.elementToFocus.focus();
+        err.elementToFocus.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+    return;
+  }
 
   if (camposObj.length === 0) {
     toast('Debes agregar al menos un campo con título al formulario.');
@@ -1348,13 +1361,18 @@ export function actualizarContadorCampos() {
   }
 }
 
-export function obtenerCamposDeConstructor() {
+export function obtenerCamposDeConstructor(validar = false) {
   const constructorCamposContainer = document.getElementById('constructor-campos-container');
   const camposObj = [];
   if (!constructorCamposContainer) return camposObj;
 
   const filas = constructorCamposContainer.querySelectorAll('.campo-visual-row');
-  filas.forEach(f => {
+  let errorMsg = null;
+  let elementToFocus = null;
+
+  filas.forEach((f, idx) => {
+    if (errorMsg) return;
+
     const labelInput = f.querySelector('.campo-label');
     const typeSelect = f.querySelector('.campo-type');
     const requiredCheckbox = f.querySelector('.campo-required');
@@ -1362,6 +1380,18 @@ export function obtenerCamposDeConstructor() {
     const label = labelInput ? labelInput.value.trim() : '';
     const type = typeSelect ? typeSelect.value : 'text';
     const required = requiredCheckbox ? requiredCheckbox.checked : false;
+
+    if (validar && label === '' && !['title', 'subtitle', 'paragraph', 'info_no_pdf'].includes(type)) {
+      errorMsg = `El campo #${idx + 1} no tiene una etiqueta o título definido.`;
+      elementToFocus = labelInput;
+      return;
+    }
+
+    if (validar && label === '' && ['title', 'subtitle', 'paragraph', 'info_no_pdf'].includes(type)) {
+      errorMsg = `El campo de texto/título #${idx + 1} no puede estar vacío.`;
+      elementToFocus = labelInput;
+      return;
+    }
 
     if (label !== '') {
       const name = f.dataset.name || label
@@ -1382,18 +1412,32 @@ export function obtenerCamposDeConstructor() {
 
       if (type === 'select') {
         const optionsInput = f.querySelector('.campo-options');
-        campoData.options = optionsInput ? optionsInput.value.split(',').map(o => o.trim()).filter(o => o !== '') : [];
+        const opts = optionsInput ? optionsInput.value.split(',').map(o => o.trim()).filter(o => o !== '') : [];
+        if (validar && opts.length === 0) {
+          errorMsg = `El campo '${label}' (Selector) debe tener al menos una opción configurada (separadas por comas).`;
+          elementToFocus = optionsInput;
+          return;
+        }
+        campoData.options = opts;
       }
 
       if (type === 'grid' || type === 'fixed_grid' || type === 'fixed_grid_dynamic_cols' || type === 'fixed_grid_fixed_cols') {
         const columns = [];
         const colRows = f.querySelectorAll('.columna-visual-row');
-        colRows.forEach(colRow => {
+        colRows.forEach((colRow, cIdx) => {
+          if (errorMsg) return;
           const colNameInput = colRow.querySelector('.col-name');
           const colTypeSelect = colRow.querySelector('.col-type');
           const colRequiredCheckbox = colRow.querySelector('.col-required');
           const colName = colNameInput ? colNameInput.value.trim() : '';
           const colType = colTypeSelect ? colTypeSelect.value : 'text';
+
+          if (validar && colName === '') {
+            errorMsg = `La columna #${cIdx + 1} en la tabla '${label}' no tiene un nombre definido.`;
+            elementToFocus = colNameInput;
+            return;
+          }
+
           if (colName !== '') {
             const colObj = {
               name: colName,
@@ -1406,23 +1450,39 @@ export function obtenerCamposDeConstructor() {
             }
             if (colType === 'select') {
               const colOptionsInput = colRow.querySelector('.col-options');
-              colObj.options = colOptionsInput ? colOptionsInput.value.split(',').map(o => o.trim()).filter(o => o !== '') : [];
+              const colOpts = colOptionsInput ? colOptionsInput.value.split(',').map(o => o.trim()).filter(o => o !== '') : [];
+              if (validar && colOpts.length === 0) {
+                errorMsg = `La columna '${colName}' (Selector) en la tabla '${label}' debe tener al menos una opción configurada.`;
+                elementToFocus = colOptionsInput;
+                return;
+              }
+              colObj.options = colOpts;
             }
             columns.push(colObj);
           }
         });
+        if (errorMsg) return;
         campoData.columns = columns;
 
         if (type === 'fixed_grid_dynamic_cols' || type === 'fixed_grid_fixed_cols') {
           const rows = [];
           const rowRows = f.querySelectorAll('.fila-visual-row');
-          rowRows.forEach(rowRow => {
+          rowRows.forEach((rowRow, rIdx) => {
+            if (errorMsg) return;
             const rowNameInput = rowRow.querySelector('.row-name');
             const rowName = rowNameInput ? rowNameInput.value.trim() : '';
+
+            if (validar && rowName === '') {
+              errorMsg = `La fila #${rIdx + 1} en la tabla '${label}' no tiene un nombre definido.`;
+              elementToFocus = rowNameInput;
+              return;
+            }
+
             if (rowName !== '') {
               rows.push(rowName);
             }
           });
+          if (errorMsg) return;
           campoData.rows = rows;
 
           const rowLabelInput = f.querySelector('.campo-row-label');
@@ -1435,6 +1495,12 @@ export function obtenerCamposDeConstructor() {
       camposObj.push(campoData);
     }
   });
+
+  if (validar && errorMsg) {
+    const err = new Error(errorMsg);
+    err.elementToFocus = elementToFocus;
+    throw err;
+  }
 
   return camposObj;
 }
