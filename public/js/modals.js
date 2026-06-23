@@ -454,7 +454,7 @@ export async function verDetalle(id, isRefresh = false) {
         detAccionesAdicionales.appendChild(pdfBtn);
       }
 
-      if (state.currentUser.rol === 'solicitante' && (sol.estado === 'borrador' || sol.estado === 'observado' || sol.estado === 'en_revision')) {
+      if (state.currentUser.rol === 'solicitante' && (sol.estado === 'borrador' || sol.estado === 'observado')) {
         const alertDiv = document.createElement('div');
         if (sol.estado === 'borrador') {
           alertDiv.className = 'alert alert-info';
@@ -462,9 +462,6 @@ export async function verDetalle(id, isRefresh = false) {
         } else if (sol.estado === 'observado') {
           alertDiv.className = 'alert alert-danger';
           alertDiv.textContent = '⚠️ Esta solicitud ha sido observada por un área técnica. Por favor corrige la información.';
-        } else {
-          alertDiv.className = 'alert alert-warning';
-          alertDiv.textContent = '🔄 El proceso de revisión está abierto. Puedes editar la información si lo requieres (esto reiniciará las aprobaciones).';
         }
         detAccionesAdicionales.appendChild(alertDiv);
 

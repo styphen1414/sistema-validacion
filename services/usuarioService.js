@@ -1,4 +1,5 @@
 const db = require('../db');
+const solicitudService = require('./solicitudService');
 
 /**
  * Obtiene un usuario por correo electrónico (para el inicio de sesión).
@@ -162,18 +163,22 @@ async function actualizarTipoSolicitud(id, formObj, inicializarAprobaciones) {
     }
 
     const activeSolsRes = await client.query(
-      "SELECT id FROM solicitudes WHERE tipo_solicitud_id = $1 AND estado IN ('en_revision', 'observado')",
+      "SELECT id, datos FROM solicitudes WHERE tipo_solicitud_id = $1 AND estado IN ('en_revision', 'observado')",
       [id]
     );
 
     const parsedAreas = Array.isArray(areas_validadoras) ? areas_validadoras : JSON.parse(areas_validadoras);
+    const parsedCampos = Array.isArray(campos) ? campos : JSON.parse(campos);
 
     for (const sol of activeSolsRes.rows) {
+      const areasRecalculadas = solicitudService.calcularAreasValidadoras(parsedCampos, sol.datos, parsedAreas);
+
       await client.query(
-        "DELETE FROM aprobaciones WHERE solicitud_id = $1 AND NOT (area = ANY($2::text[]))",
-        [sol.id, parsedAreas]
+        "UPDATE solicitudes SET areas_validadoras = $1 WHERE id = $2",
+        [JSON.stringify(areasRecalculadas), sol.id]
       );
-      await inicializarAprobaciones(sol.id, parsedAreas, client);
+
+      await inicializarAprobaciones(sol.id, areasRecalculadas, client);
     }
 
     await client.query('COMMIT');

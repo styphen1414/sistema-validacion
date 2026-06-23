@@ -4,53 +4,7 @@ const solicitudService = require('../services/solicitudService');
 const mailer = require('../mailer');
 const pdfGenerator = require('../pdfGenerator');
 const { autenticar } = require('../middlewares/auth');
-const { inicializarAprobaciones } = require('../dbHelper');
-
-function generarCodigoSeguimiento(sol) {
-  if (!sol) return '';
-  const fechaCreacion = new Date(sol.fecha_creacion);
-  const mes = String(fechaCreacion.getMonth() + 1).padStart(2, '0');
-  const anio = fechaCreacion.getFullYear();
-  const codigoClean = (sol.tipo_codigo || 'FORM').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
-  const cedulaClean = (sol.solicitante_cedula || '').trim().replace(/[^a-zA-Z0-9_-]/g, '');
-
-  let areas = [];
-  if (sol.areas_validadoras) {
-    if (Array.isArray(sol.areas_validadoras)) {
-      areas = sol.areas_validadoras;
-    } else if (typeof sol.areas_validadoras === 'string') {
-      try {
-        areas = JSON.parse(sol.areas_validadoras);
-      } catch (e) {}
-    }
-  }
-
-  const acronymMap = {
-    gibdd: 'GBDD',
-    giitrc: 'GIITRC',
-    osi: 'OSI',
-    director: 'DIR'
-  };
-
-  const acronyms = [];
-  if (Array.isArray(areas)) {
-    areas.forEach(area => {
-      const lowerArea = String(area).trim().toLowerCase();
-      if (acronymMap[lowerArea]) {
-        acronyms.push(acronymMap[lowerArea]);
-      }
-    });
-  }
-
-  acronyms.sort();
-
-  if (acronyms.length > 0) {
-    const acronymsStr = acronyms.join('_');
-    return `${codigoClean}_${acronymsStr}_${cedulaClean}_${mes}_${anio}`;
-  }
-
-  return `${codigoClean}_${cedulaClean}_${mes}_${anio}`;
-}
+const { inicializarAprobaciones, generarCodigoSeguimiento } = require('../dbHelper');
 
 
 function validarDatos(campos, datos) {
@@ -289,7 +243,7 @@ router.put('/:id', autenticar, async (req, res) => {
     if (rol === 'admin') {
       autorizado = true;
     } else if (rol === 'solicitante' && solicitud.solicitante_id === userId) {
-      if (solicitud.estado === 'borrador' || solicitud.estado === 'observado' || solicitud.estado === 'en_revision') {
+      if (solicitud.estado === 'borrador' || solicitud.estado === 'observado') {
         autorizado = true;
       }
     } else if (rol === 'tecnico' && area && area !== 'director' && solicitud.areas_validadoras.includes(area)) {
