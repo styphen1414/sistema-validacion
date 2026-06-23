@@ -60,6 +60,16 @@ export async function verDetalle(id, isRefresh = false) {
       return;
     }
 
+    // Sincronizar con el estado local para asegurar que acciones posteriores (como edición) tengan datos y campos frescos
+    if (state.todasLasSolicitudes) {
+      const idx = state.todasLasSolicitudes.findIndex(s => s.id === sol.id);
+      if (idx !== -1) {
+        state.todasLasSolicitudes[idx] = sol;
+      } else {
+        state.todasLasSolicitudes.push(sol);
+      }
+    }
+
     state.activeSolicitudId = id;
 
     if (detCodigo) detCodigo.textContent = generarCodigoSeguimiento(sol);
@@ -528,7 +538,7 @@ export function abrirEdicion(solicitudId, tipoId) {
     selectTipoSolicitud.disabled = true;
   }
 
-  renderizarCamposDinamicos(tipoId, sol.datos);
+  renderizarCamposDinamicos({ campos: sol.campos }, sol.datos);
   
   const title = document.getElementById('modal-solicitud-titulo');
   if (title) title.textContent = `Editar Solicitud ${generarCodigoSeguimiento(sol)}`;

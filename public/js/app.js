@@ -348,7 +348,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const btnNuevaSolicitud = document.getElementById('btn-nueva-solicitud');
   if (btnNuevaSolicitud) {
-    btnNuevaSolicitud.addEventListener('click', () => {
+    btnNuevaSolicitud.addEventListener('click', async () => {
+      // Recargar las plantillas más recientes antes de abrir el modal
+      await cargarTiposSolicitud();
+
       const solicitudIdInput = document.getElementById('solicitud-id');
       const selectTipoSolicitud = document.getElementById('select-tipo-solicitud');
       const camposDinamicosContainer = document.getElementById('campos-dinamicos-container');
