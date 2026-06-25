@@ -1564,19 +1564,27 @@ export function registrarValidacionTiempoReal(input, tipo, required, label, maxL
     }
 
     // Buscar o inyectar feedback
-    let feedback = input.parentNode.querySelector('.validation-feedback');
-    if (error) {
-      input.classList.add('is-invalid');
-      if (!feedback) {
-        feedback = document.createElement('div');
-        feedback.className = 'validation-feedback';
-        input.parentNode.insertBefore(feedback, input.nextSibling);
+    if (input.parentNode) {
+      let feedback = input.parentNode.querySelector('.validation-feedback');
+      if (error) {
+        input.classList.add('is-invalid');
+        if (!feedback) {
+          feedback = document.createElement('div');
+          feedback.className = 'validation-feedback';
+          input.parentNode.insertBefore(feedback, input.nextSibling);
+        }
+        feedback.textContent = error;
+      } else {
+        input.classList.remove('is-invalid');
+        if (feedback) {
+          feedback.remove();
+        }
       }
-      feedback.textContent = error;
     } else {
-      input.classList.remove('is-invalid');
-      if (feedback) {
-        feedback.remove();
+      if (error) {
+        input.classList.add('is-invalid');
+      } else {
+        input.classList.remove('is-invalid');
       }
     }
     return !error;
