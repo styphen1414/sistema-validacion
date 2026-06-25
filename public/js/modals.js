@@ -380,59 +380,111 @@ export async function verDetalle(id, isRefresh = false) {
             observacionTexto.value = '';
           }
 
-          if (['seguridad', 'gibdd', 'giitrc', 'osi'].includes(state.currentUser.area)) {
-            if (!aprobacionArea.tecnico_id) {
-              if (panelAsignacionContainer) {
-                panelAsignacionContainer.innerHTML = `
-                  <div class="alert alert-warning" style="margin-bottom: 0.8rem; font-size: 0.8rem; padding: 0.5rem 0.8rem;">
-                    ⚠️ Solicitud sin asignar. Debes asignarte la solicitud para poder validarla u observarla.
-                  </div>
-                  <button type="button" class="btn btn-primary btn-block" id="btn-self-assign">
-                    🙋‍♂️ Asignarme Solicitud (Tomar Responsabilidad)
-                  </button>
-                `;
-                document.getElementById('btn-self-assign').onclick = () => asignarSolicitud(sol.id);
+          // Eliminar el mensaje de espera previo si existe
+          const msgEsperaPrevio = panelAccionesTecnicas.querySelector('.espera-msg');
+          if (msgEsperaPrevio) msgEsperaPrevio.remove();
+
+          if (sol.estado === 'observado') {
+            if (actionsButtonsRow) actionsButtonsRow.style.display = 'none';
+            if (obsInputArea) obsInputArea.style.display = 'none';
+
+            if (['seguridad', 'gibdd', 'giitrc', 'osi'].includes(state.currentUser.area)) {
+              if (!aprobacionArea.tecnico_id) {
+                if (panelAsignacionContainer) {
+                  panelAsignacionContainer.innerHTML = `
+                    <div class="alert alert-warning" style="margin-bottom: 0.8rem; font-size: 0.8rem; padding: 0.5rem 0.8rem;">
+                      ⚠️ Solicitud sin asignar.
+                    </div>
+                  `;
+                }
+              } else if (aprobacionArea.tecnico_id === state.currentUser.id) {
+                if (panelAsignacionContainer) {
+                  panelAsignacionContainer.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; background: #F4F8F3; border: 1px solid var(--success-color); padding: 0.5rem 0.8rem; border-radius: var(--radius-md); margin-bottom: 0.8rem;">
+                      <span style="font-size: 0.8rem; color: var(--success-hover); font-weight: bold;">
+                        ✅ Asignado a ti (Responsable de la revisión)
+                      </span>
+                      <button type="button" class="btn btn-outline btn-sm" id="btn-release-assign" style="margin: 0; padding: 0.2rem 0.5rem; font-size: 0.75rem; border-color: var(--danger-color); color: var(--danger-color);">
+                        🔓 Liberar Asignación
+                      </button>
+                    </div>
+                  `;
+                  document.getElementById('btn-release-assign').onclick = () => desasignarSolicitud(sol.id);
+                }
+              } else {
+                if (panelAsignacionContainer) {
+                  panelAsignacionContainer.innerHTML = `
+                    <div class="alert alert-danger" style="margin-bottom: 0; font-size: 0.8rem; padding: 0.5rem 0.8rem;">
+                      🚫 Asignado a otro técnico: <strong>${escaparHTML(aprobacionArea.tecnico_nombre || 'Analista')}</strong>.
+                    </div>
+                  `;
+                }
               }
-              if (actionsButtonsRow) actionsButtonsRow.style.display = 'none';
-              if (obsInputArea) obsInputArea.style.display = 'none';
-            } else if (aprobacionArea.tecnico_id === state.currentUser.id) {
-              if (panelAsignacionContainer) {
-                panelAsignacionContainer.innerHTML = `
-                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; background: #F4F8F3; border: 1px solid var(--success-color); padding: 0.5rem 0.8rem; border-radius: var(--radius-md); margin-bottom: 0.8rem;">
-                    <span style="font-size: 0.8rem; color: var(--success-hover); font-weight: bold;">
-                      ✅ Asignado a ti (Responsable de la revisión)
-                    </span>
-                    <button type="button" class="btn btn-outline btn-sm" id="btn-release-assign" style="margin: 0; padding: 0.2rem 0.5rem; font-size: 0.75rem; border-color: var(--danger-color); color: var(--danger-color);">
-                      🔓 Liberar Asignación
+            }
+
+            const esperaMsg = document.createElement('div');
+            esperaMsg.className = 'espera-msg alert alert-info';
+            esperaMsg.style.marginTop = '0.5rem';
+            esperaMsg.style.textAlign = 'center';
+            esperaMsg.innerHTML = '⌛ <strong>A la espera de la corrección de observaciones por parte del solicitante.</strong>';
+            panelAccionesTecnicas.appendChild(esperaMsg);
+
+          } else {
+            // Estado 'en_revision' - Mostrar flujo normal
+            if (['seguridad', 'gibdd', 'giitrc', 'osi'].includes(state.currentUser.area)) {
+              if (!aprobacionArea.tecnico_id) {
+                if (panelAsignacionContainer) {
+                  panelAsignacionContainer.innerHTML = `
+                    <div class="alert alert-warning" style="margin-bottom: 0.8rem; font-size: 0.8rem; padding: 0.5rem 0.8rem;">
+                      ⚠️ Solicitud sin asignar. Debes asignarte la solicitud para poder validarla u observarla.
+                    </div>
+                    <button type="button" class="btn btn-primary btn-block" id="btn-self-assign">
+                      🙋‍♂️ Asignarme Solicitud (Tomar Responsabilidad)
                     </button>
-                  </div>
-                `;
-                document.getElementById('btn-release-assign').onclick = () => desasignarSolicitud(sol.id);
+                  `;
+                  document.getElementById('btn-self-assign').onclick = () => asignarSolicitud(sol.id);
+                }
+                if (actionsButtonsRow) actionsButtonsRow.style.display = 'none';
+                if (obsInputArea) obsInputArea.style.display = 'none';
+              } else if (aprobacionArea.tecnico_id === state.currentUser.id) {
+                if (panelAsignacionContainer) {
+                  panelAsignacionContainer.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; background: #F4F8F3; border: 1px solid var(--success-color); padding: 0.5rem 0.8rem; border-radius: var(--radius-md); margin-bottom: 0.8rem;">
+                      <span style="font-size: 0.8rem; color: var(--success-hover); font-weight: bold;">
+                        ✅ Asignado a ti (Responsable de la revisión)
+                      </span>
+                      <button type="button" class="btn btn-outline btn-sm" id="btn-release-assign" style="margin: 0; padding: 0.2rem 0.5rem; font-size: 0.75rem; border-color: var(--danger-color); color: var(--danger-color);">
+                        🔓 Liberar Asignación
+                      </button>
+                    </div>
+                  `;
+                  document.getElementById('btn-release-assign').onclick = () => desasignarSolicitud(sol.id);
+                }
+                if (actionsButtonsRow) actionsButtonsRow.style.display = 'flex';
+                if (obsInputArea) obsInputArea.style.display = 'block';
+  
+                if (btnAprobarTecnico) btnAprobarTecnico.onclick = () => realizarAprobacion(sol.id);
+                if (btnAprobarConObservacion) btnAprobarConObservacion.onclick = () => realizarAprobacionConObservacion(sol.id);
+                if (btnObservarTecnico) btnObservarTecnico.onclick = () => realizarObservacion(sol.id);
+              } else {
+                if (panelAsignacionContainer) {
+                  panelAsignacionContainer.innerHTML = `
+                    <div class="alert alert-danger" style="margin-bottom: 0; font-size: 0.8rem; padding: 0.5rem 0.8rem;">
+                      🚫 Asignado a otro técnico: <strong>${escaparHTML(aprobacionArea.tecnico_nombre || 'Analista')}</strong>.
+                    </div>
+                  `;
+                }
+                if (actionsButtonsRow) actionsButtonsRow.style.display = 'none';
+                if (obsInputArea) obsInputArea.style.display = 'none';
               }
+            } else {
               if (actionsButtonsRow) actionsButtonsRow.style.display = 'flex';
               if (obsInputArea) obsInputArea.style.display = 'block';
-
+  
               if (btnAprobarTecnico) btnAprobarTecnico.onclick = () => realizarAprobacion(sol.id);
               if (btnAprobarConObservacion) btnAprobarConObservacion.onclick = () => realizarAprobacionConObservacion(sol.id);
               if (btnObservarTecnico) btnObservarTecnico.onclick = () => realizarObservacion(sol.id);
-            } else {
-              if (panelAsignacionContainer) {
-                panelAsignacionContainer.innerHTML = `
-                  <div class="alert alert-danger" style="margin-bottom: 0; font-size: 0.8rem; padding: 0.5rem 0.8rem;">
-                    🚫 Asignado a otro técnico: <strong>${escaparHTML(aprobacionArea.tecnico_nombre || 'Analista')}</strong>.
-                  </div>
-                `;
-              }
-              if (actionsButtonsRow) actionsButtonsRow.style.display = 'none';
-              if (obsInputArea) obsInputArea.style.display = 'none';
             }
-          } else {
-            if (actionsButtonsRow) actionsButtonsRow.style.display = 'flex';
-            if (obsInputArea) obsInputArea.style.display = 'block';
-
-            if (btnAprobarTecnico) btnAprobarTecnico.onclick = () => realizarAprobacion(sol.id);
-            if (btnAprobarConObservacion) btnAprobarConObservacion.onclick = () => realizarAprobacionConObservacion(sol.id);
-            if (btnObservarTecnico) btnObservarTecnico.onclick = () => realizarObservacion(sol.id);
           }
         }
       }

@@ -312,6 +312,20 @@ router.post('/:id/aprobar', autenticar, async (req, res) => {
       return res.status(400).json({ error: 'La solicitud debe estar en revisión o con observaciones para aprobar.' });
     }
 
+    const aprobacion = await solicitudService.obtenerAprobacionArea(id, area);
+    if (!aprobacion) {
+      return res.status(400).json({ error: 'Esta solicitud no requiere la validación de tu área.' });
+    }
+
+    if (['seguridad', 'gibdd', 'giitrc', 'osi'].includes(area)) {
+      if (!aprobacion.tecnico_id) {
+        return res.status(400).json({ error: 'Debes asignarte la solicitud antes de poder aprobarla.' });
+      }
+      if (aprobacion.tecnico_id !== tecnicoId) {
+        return res.status(400).json({ error: 'Esta solicitud está asignada a otro técnico de tu área.' });
+      }
+    }
+
     const approvalResult = await solicitudService.aprobarSeccion(id, tecnicoId, area, observacion);
     if (!approvalResult) {
       return res.status(400).json({ error: 'Esta solicitud no requiere la validación de tu área.' });
@@ -387,6 +401,20 @@ router.post('/:id/observar', autenticar, async (req, res) => {
     }
     if (solicitud.estado !== 'en_revision' && solicitud.estado !== 'observado') {
       return res.status(400).json({ error: 'La solicitud debe estar en revisión o con observaciones.' });
+    }
+
+    const aprobacion = await solicitudService.obtenerAprobacionArea(id, area);
+    if (!aprobacion) {
+      return res.status(400).json({ error: 'Esta solicitud no requiere la validación de tu área.' });
+    }
+
+    if (['seguridad', 'gibdd', 'giitrc', 'osi'].includes(area)) {
+      if (!aprobacion.tecnico_id) {
+        return res.status(400).json({ error: 'Debes asignarte la solicitud antes de poder observarla.' });
+      }
+      if (aprobacion.tecnico_id !== tecnicoId) {
+        return res.status(400).json({ error: 'Esta solicitud está asignada a otro técnico de tu área.' });
+      }
     }
 
     await solicitudService.registrarObservacionYReabrir(id, area, tecnicoId, texto);

@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { iniciarAutoRefresh, detenerAutoRefresh } from './polling.js';
+import { iniciarAutoRefresh, detenerAutoRefresh, iniciarChequeoInactividad, detenerChequeoInactividad } from './polling.js';
 import { toast } from './utils.js';
 
 export function mostrarLogin() {
@@ -82,10 +82,12 @@ export async function mostrarAppPrincipal() {
   }
 
   iniciarAutoRefresh();
+  iniciarChequeoInactividad();
 }
 
 export function cerrarSesion() {
   detenerAutoRefresh();
+  detenerChequeoInactividad();
   state.currentUser = null;
   state.authToken = null;
   localStorage.removeItem('svt_user');

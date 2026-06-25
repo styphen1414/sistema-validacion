@@ -32,7 +32,7 @@ async function inicializarAprobaciones(solicitudId, areas, client = db) {
           `INSERT INTO aprobaciones (solicitud_id, area, estado, tecnico_id, fecha)
            VALUES ($1, $2, 'pendiente', NULL, NULL)
            ON CONFLICT (solicitud_id, area)
-           DO UPDATE SET estado = 'pendiente', tecnico_id = NULL, fecha = NULL, observacion = NULL`,
+           DO UPDATE SET estado = 'pendiente', tecnico_id = aprobaciones.tecnico_id, fecha = NULL, observacion = NULL`,
           [solicitudId, area]
         );
       }

@@ -4,7 +4,8 @@ import { cargarBandeja } from './app.js';
 
 // AUTO-ACTUALIZACIÓN PERIÓDICA INTELIGENTE (POLLING DE 15 SEGUNDOS)
 export const AUTO_REFRESH_INTERVAL = 15000;
-export const MAX_INACTIVITY_TIME = 5 * 60 * 1000; // 5 minutos (300000ms)
+export const MAX_INACTIVITY_TIME = 5 * 60 * 60 * 1000; // 5 horas (18000000ms)
+export const MAX_SESSION_INACTIVITY_TIME = 5 * 60 * 60 * 1000; // 5 horas (18000000ms)
 
 export function registrarActividadUsuario() {
   state.ultimoContactoUsuario = Date.now();
@@ -82,5 +83,35 @@ export function detenerAutoRefresh() {
   if (state.autoRefreshTimeout) {
     clearTimeout(state.autoRefreshTimeout);
     state.autoRefreshTimeout = null;
+  }
+}
+
+let chequeoInactividadInterval = null;
+
+export function iniciarChequeoInactividad() {
+  detenerChequeoInactividad();
+  state.ultimoContactoUsuario = Date.now();
+
+  chequeoInactividadInterval = setInterval(async () => {
+    if (!state.currentUser) {
+      detenerChequeoInactividad();
+      return;
+    }
+
+    const tiempoInactivo = Date.now() - state.ultimoContactoUsuario;
+    if (tiempoInactivo >= MAX_SESSION_INACTIVITY_TIME) {
+      detenerChequeoInactividad();
+      const { toast } = await import('./utils.js');
+      toast('Tu sesión ha expirado por inactividad (5 horas).');
+      const { cerrarSesion } = await import('./auth.js');
+      cerrarSesion();
+    }
+  }, 10000); // Comprobar cada 10 segundos
+}
+
+export function detenerChequeoInactividad() {
+  if (chequeoInactividadInterval) {
+    clearInterval(chequeoInactividadInterval);
+    chequeoInactividadInterval = null;
   }
 }

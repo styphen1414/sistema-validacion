@@ -277,7 +277,8 @@ export function renderizarCamposDinamicos(tipoId, valoresExistentes = null, cust
             nomInp.placeholder = 'Nombre';
             nomInp.value = parsed.nombre;
             if (isColRequired) nomInp.required = true;
-            nomInp.oninput = updateCell;
+            aplicarFiltroEntrada(nomInp, /[^a-zA-Z\s]/g, 100, updateCell);
+            registrarValidacionTiempoReal(nomInp, 'firmante_nombre', isColRequired, 'Nombre', 100);
             compDiv.appendChild(nomInp);
 
             let cedInp = null;
@@ -287,15 +288,8 @@ export function renderizarCamposDinamicos(tipoId, valoresExistentes = null, cust
               cedInp.placeholder = 'Cédula';
               cedInp.value = parsed.cedula;
               cedInp.maxLength = 10;
-              cedInp.onkeypress = (e) => {
-                if (e.key < '0' || e.key > '9') {
-                  e.preventDefault();
-                }
-              };
-              cedInp.oninput = (e) => {
-                e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                updateCell();
-              };
+              aplicarFiltroEntrada(cedInp, /[^0-9]/g, 10, updateCell);
+              registrarValidacionTiempoReal(cedInp, 'identificacion', isColRequired, 'Cédula', 10);
               compDiv.appendChild(cedInp);
             }
 
@@ -305,7 +299,8 @@ export function renderizarCamposDinamicos(tipoId, valoresExistentes = null, cust
               carInp.type = 'text';
               carInp.placeholder = 'Cargo';
               carInp.value = parsed.cargo;
-              carInp.oninput = updateCell;
+              aplicarFiltroEntrada(carInp, /[^a-zA-Z\s]/g, 100, updateCell);
+              registrarValidacionTiempoReal(carInp, 'firmante_cargo', isColRequired, 'Cargo', 100);
               compDiv.appendChild(carInp);
             }
 
@@ -331,6 +326,7 @@ export function renderizarCamposDinamicos(tipoId, valoresExistentes = null, cust
 
             selectEl.value = rowData ? (rowData[colName] || '') : '';
             if (isColRequired) selectEl.required = true;
+            registrarValidacionTiempoReal(selectEl, 'select', isColRequired, colName);
             td.appendChild(selectEl);
           } else {
             const input = document.createElement('input');
@@ -340,46 +336,31 @@ export function renderizarCamposDinamicos(tipoId, valoresExistentes = null, cust
               input.type = 'number';
               input.placeholder = '0';
               input.min = '0';
+              aplicarFiltroEntrada(input, /[^0-9]/g);
             } else if (colType === 'date') {
               input.type = 'date';
             } else if (colType === 'email') {
               input.type = 'email';
               input.placeholder = 'correo@ejemplo.com';
+              aplicarFiltroEntrada(input, /[^a-zA-Z0-9.@_\-+]/g, 100);
             } else if (colType === 'identificacion') {
               input.type = 'text';
               input.dataset.type = 'identificacion';
               input.maxLength = 10;
               input.placeholder = '10 dígitos';
-              input.onkeypress = (e) => {
-                if (e.key < '0' || e.key > '9') {
-                  e.preventDefault();
-                }
-              };
-              input.oninput = (e) => {
-                e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10);
-              };
+              aplicarFiltroEntrada(input, /[^0-9]/g, 10);
             } else if (colType === 'ip') {
               input.type = 'text';
               input.dataset.type = 'ip';
               input.placeholder = '192.168.1.10';
               input.maxLength = 15;
-              input.onkeypress = (e) => {
-                if (!/[\d.]/.test(e.key)) e.preventDefault();
-              };
-              input.oninput = (e) => {
-                e.target.value = e.target.value.replace(/[^0-9.]/g, '').slice(0, 15);
-              };
+              aplicarFiltroEntrada(input, /[^0-9.]/g, 15);
             } else if (colType === 'mac') {
               input.type = 'text';
               input.dataset.type = 'mac';
               input.placeholder = 'AA:BB:CC:DD:EE:FF';
               input.maxLength = 17;
-              input.onkeypress = (e) => {
-                if (!/[0-9a-fA-F:\-]/.test(e.key)) e.preventDefault();
-              };
-              input.oninput = (e) => {
-                e.target.value = e.target.value.replace(/[^0-9a-fA-F:\-]/g, '').slice(0, 17);
-              };
+              aplicarFiltroEntrada(input, /[^0-9a-fA-F:\-]/g, 17);
             } else if (colType === 'time') {
               input.type = 'time';
             } else {
@@ -390,9 +371,11 @@ export function renderizarCamposDinamicos(tipoId, valoresExistentes = null, cust
               } else if (colType === 'textarea') {
                 input.maxLength = 500;
               }
+              aplicarFiltroEntrada(input, /[^a-zA-Z0-9áéíóúüñÁÉÍÓÚÜÑ\s.,():;_!?/@-]/g, colType === 'textarea' ? 500 : 100);
             }
             input.value = rowData ? (rowData[colName] || '') : '';
             if (isColRequired) input.required = true;
+            registrarValidacionTiempoReal(input, colType, isColRequired, colName, colType === 'text' ? 100 : (colType === 'textarea' ? 500 : null));
             td.appendChild(input);
           }
           tr.appendChild(td);
@@ -469,6 +452,8 @@ export function renderizarCamposDinamicos(tipoId, valoresExistentes = null, cust
               input.type = 'text';
               input.placeholder = `Ingresa ${cleanedName.toLowerCase()}`;
               input.maxLength = 100;
+              aplicarFiltroEntrada(input, /[^a-zA-Z0-9áéíóúüñÁÉÍÓÚÜÑ\s.,():;_!?/@-]/g, 100);
+              registrarValidacionTiempoReal(input, 'text', false, cleanedName, 100);
               td.appendChild(input);
               tr.appendChild(td);
             });
@@ -548,7 +533,8 @@ export function renderizarCamposDinamicos(tipoId, valoresExistentes = null, cust
           nomInp.placeholder = 'Nombre Completo';
           nomInp.value = parsed.nombre;
           if (campo.required) nomInp.required = true;
-          nomInp.oninput = updateVal;
+          aplicarFiltroEntrada(nomInp, /[^a-zA-Z\s]/g, 100, updateVal);
+          registrarValidacionTiempoReal(nomInp, 'firmante_nombre', campo.required, 'Nombre Completo', 100);
           compDiv.appendChild(nomInp);
 
           let cedInp = null;
@@ -558,15 +544,8 @@ export function renderizarCamposDinamicos(tipoId, valoresExistentes = null, cust
             cedInp.placeholder = 'Cédula';
             cedInp.value = parsed.cedula;
             cedInp.maxLength = 10;
-            cedInp.onkeypress = (e) => {
-              if (e.key < '0' || e.key > '9') {
-                e.preventDefault();
-              }
-            };
-            cedInp.oninput = (e) => {
-              e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10);
-              updateVal();
-            };
+            aplicarFiltroEntrada(cedInp, /[^0-9]/g, 10, updateVal);
+            registrarValidacionTiempoReal(cedInp, 'identificacion', campo.required, 'Cédula', 10);
             compDiv.appendChild(cedInp);
           }
 
@@ -576,7 +555,8 @@ export function renderizarCamposDinamicos(tipoId, valoresExistentes = null, cust
             carInp.type = 'text';
             carInp.placeholder = 'Cargo';
             carInp.value = parsed.cargo;
-            carInp.oninput = updateVal;
+            aplicarFiltroEntrada(carInp, /[^a-zA-Z\s]/g, 100, updateVal);
+            registrarValidacionTiempoReal(carInp, 'firmante_cargo', campo.required, 'Cargo', 100);
             compDiv.appendChild(carInp);
           }
 
@@ -592,6 +572,8 @@ export function renderizarCamposDinamicos(tipoId, valoresExistentes = null, cust
             mainValInput.maxLength = 100;
           }
           if (campo.required) mainValInput.required = true;
+          aplicarFiltroEntrada(mainValInput, /[^a-zA-Z0-9áéíóúüñÁÉÍÓÚÜÑ\s.,():;_!?/@-]/g, campo.type === 'text_list' ? 100 : null);
+          registrarValidacionTiempoReal(mainValInput, campo.type, campo.required, campo.label, campo.type === 'text_list' ? 100 : null);
           row.appendChild(mainValInput);
         }
 
@@ -754,7 +736,8 @@ export function renderizarCamposDinamicos(tipoId, valoresExistentes = null, cust
       nombreInput.placeholder = 'Nombre Completo';
       nombreInput.value = parsed.nombre;
       if (campo.required) nombreInput.required = true;
-      nombreInput.oninput = updateValue;
+      aplicarFiltroEntrada(nombreInput, /[^a-zA-Z\s]/g, 100, updateValue);
+      registrarValidacionTiempoReal(nombreInput, 'firmante_nombre', campo.required, 'Nombres y Apellidos', 100);
       nombreGroup.appendChild(nombreLabel);
       nombreGroup.appendChild(nombreInput);
       container.appendChild(nombreGroup);
@@ -769,15 +752,8 @@ export function renderizarCamposDinamicos(tipoId, valoresExistentes = null, cust
         cedulaInput.placeholder = 'Cédula';
         cedulaInput.value = parsed.cedula;
         cedulaInput.maxLength = 10;
-        cedulaInput.onkeypress = (e) => {
-          if (e.key < '0' || e.key > '9') {
-            e.preventDefault();
-          }
-        };
-        cedulaInput.oninput = (e) => {
-          e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10);
-          updateValue();
-        };
+        aplicarFiltroEntrada(cedulaInput, /[^0-9]/g, 10, updateValue);
+        registrarValidacionTiempoReal(cedulaInput, 'identificacion', campo.required, 'Cédula', 10);
         cedulaGroup.appendChild(cedulaLabel);
         cedulaGroup.appendChild(cedulaInput);
         container.appendChild(cedulaGroup);
@@ -792,7 +768,8 @@ export function renderizarCamposDinamicos(tipoId, valoresExistentes = null, cust
         cargoInput.type = 'text';
         cargoInput.placeholder = 'Cargo';
         cargoInput.value = parsed.cargo;
-        cargoInput.oninput = updateValue;
+        aplicarFiltroEntrada(cargoInput, /[^a-zA-Z\s]/g, 100, updateValue);
+        registrarValidacionTiempoReal(cargoInput, 'firmante_cargo', campo.required, 'Cargo', 100);
         cargoGroup.appendChild(cargoLabel);
         cargoGroup.appendChild(cargoInput);
         container.appendChild(cargoGroup);
@@ -819,34 +796,26 @@ export function renderizarCamposDinamicos(tipoId, valoresExistentes = null, cust
         inputElement = document.createElement('textarea');
         inputElement.placeholder = `Ingresa ${campo.label.toLowerCase()}`;
         inputElement.maxLength = 500;
+        aplicarFiltroEntrada(inputElement, /[^a-zA-Z0-9áéíóúüñÁÉÍÓÚÜÑ\s.,():;_!?/@-]/g, 500);
       } else if (campo.type === 'number') {
         inputElement = document.createElement('input');
         inputElement.type = 'number';
         inputElement.placeholder = `Ingresa ${campo.label.toLowerCase()}`;
+        aplicarFiltroEntrada(inputElement, /[^0-9]/g);
       } else if (campo.type === 'ip') {
         inputElement = document.createElement('input');
         inputElement.type = 'text';
         inputElement.placeholder = 'Ej: 192.168.1.10';
         inputElement.dataset.type = 'ip';
         inputElement.maxLength = 15;
-        inputElement.onkeypress = (e) => {
-          if (!/[\d.]/.test(e.key)) e.preventDefault();
-        };
-        inputElement.oninput = (e) => {
-          e.target.value = e.target.value.replace(/[^0-9.]/g, '').slice(0, 15);
-        };
+        aplicarFiltroEntrada(inputElement, /[^0-9.]/g, 15);
       } else if (campo.type === 'mac') {
         inputElement = document.createElement('input');
         inputElement.type = 'text';
         inputElement.placeholder = 'Ej: AA:BB:CC:DD:EE:FF';
         inputElement.dataset.type = 'mac';
         inputElement.maxLength = 17;
-        inputElement.onkeypress = (e) => {
-          if (!/[0-9a-fA-F:\-]/.test(e.key)) e.preventDefault();
-        };
-        inputElement.oninput = (e) => {
-          e.target.value = e.target.value.replace(/[^0-9a-fA-F:\-]/g, '').slice(0, 17);
-        };
+        aplicarFiltroEntrada(inputElement, /[^0-9a-fA-F:\-]/g, 17);
       } else if (campo.type === 'time') {
         inputElement = document.createElement('input');
         inputElement.type = 'time';
@@ -857,12 +826,14 @@ export function renderizarCamposDinamicos(tipoId, valoresExistentes = null, cust
         if (campo.type === 'text') {
           inputElement.maxLength = 100;
         }
+        aplicarFiltroEntrada(inputElement, /[^a-zA-Z0-9áéíóúüñÁÉÍÓÚÜÑ\s.,():;_!?/@-]/g, campo.type === 'text' ? 100 : null);
       }
 
       inputElement.name = campo.name;
       inputElement.id = `campo-${campo.name}`;
       inputElement.value = valor;
       if (campo.required) inputElement.required = true;
+      registrarValidacionTiempoReal(inputElement, campo.type, campo.required, campo.label, campo.type === 'text' ? 100 : (campo.type === 'textarea' ? 500 : null));
       formGroup.appendChild(inputElement);
     }
     container.appendChild(formGroup);
@@ -1012,8 +983,8 @@ export async function enviarFormulario(enviar) {
 
   const tipo = state.tiposSolicitud.find(t => t.id === parseInt(tipoSolicitudId, 10));
   if (enviar && tipo) {
-    // Limpiar clases de error previas
     const containerToClean = camposDinamicosContainer || document.getElementById('campos-dinamicos-container');
+    let formValido = true;
     if (containerToClean) {
       containerToClean.querySelectorAll('.is-invalid').forEach(el => {
         el.classList.remove('is-invalid');
@@ -1021,6 +992,24 @@ export async function enviarFormulario(enviar) {
       containerToClean.querySelectorAll('.text-list-container.is-invalid').forEach(el => {
         el.classList.remove('is-invalid');
       });
+      containerToClean.querySelectorAll('.validation-feedback').forEach(el => {
+        el.remove();
+      });
+
+      const inputs = containerToClean.querySelectorAll('input, textarea, select');
+      inputs.forEach(input => {
+        if (typeof input.validarCampo === 'function') {
+          const ok = input.validarCampo();
+          if (!ok) {
+            formValido = false;
+          }
+        }
+      });
+    }
+
+    if (!formValido) {
+      toast('Por favor corrige los errores en el formulario.');
+      return;
     }
 
     let errorMsg = null;
@@ -1476,4 +1465,110 @@ export async function enviarFormulario(enviar) {
   } catch (error) {
     toast(error.message);
   }
+}
+
+function aplicarFiltroEntrada(input, regexNoPermitido, maxLength = null, onValidInput = null) {
+  if (!input) return;
+
+  const handler = (e) => {
+    let val = input.value;
+    
+    let canGetSelection = false;
+    try {
+      canGetSelection = typeof input.selectionStart === 'number';
+    } catch (err) {}
+
+    const selectionStart = canGetSelection ? input.selectionStart : null;
+    
+    regexNoPermitido.lastIndex = 0;
+    let cleaned = val.replace(regexNoPermitido, '');
+    
+    if (maxLength !== null && cleaned.length > maxLength) {
+      cleaned = cleaned.slice(0, maxLength);
+    }
+    
+    if (val !== cleaned) {
+      input.value = cleaned;
+      if (canGetSelection && selectionStart !== null) {
+        const diff = val.length - cleaned.length;
+        const newPos = Math.max(0, selectionStart - diff);
+        input.setSelectionRange(newPos, newPos);
+      }
+    }
+    
+    if (onValidInput) {
+      onValidInput(e);
+    }
+  };
+
+  input.addEventListener('input', handler);
+  
+  input.addEventListener('keypress', (e) => {
+    if (e.key.length === 1) {
+      regexNoPermitido.lastIndex = 0;
+      if (regexNoPermitido.test(e.key)) {
+        e.preventDefault();
+      }
+    }
+  });
+}
+
+export function registrarValidacionTiempoReal(input, tipo, required, label, maxLength = null) {
+  if (!input) return;
+
+  const ipRegex = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
+  const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$|^([0-9A-Fa-f]{4}\.){2}[0-9A-Fa-f]{4}$/;
+  const idRegex = /^\d{10}$/;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const timeRegex = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/;
+
+  const validar = () => {
+    let val = input.value.trim();
+    let error = null;
+
+    if (required && val === '') {
+      error = `El campo "${label}" es obligatorio.`;
+    } else if (val !== '') {
+      if (tipo === 'ip' && !ipRegex.test(val)) {
+        error = `El campo "${label}" debe ser una dirección IP válida (ej. 192.168.1.10).`;
+      } else if (tipo === 'mac' && !macRegex.test(val)) {
+        error = `El campo "${label}" debe ser una dirección MAC válida (ej. AA:BB:CC:DD:EE:FF).`;
+      } else if (tipo === 'identificacion' && !idRegex.test(val)) {
+        error = `El campo "${label}" debe contener exactamente 10 dígitos numéricos.`;
+      } else if (tipo === 'email' && !emailRegex.test(val)) {
+        error = `El campo "${label}" no es un correo electrónico válido.`;
+      } else if (tipo === 'time' && !timeRegex.test(val)) {
+        error = `El campo "${label}" debe ser una hora válida (HH:MM).`;
+      } else if (maxLength !== null && val.length > maxLength) {
+        error = `El campo "${label}" no debe superar los ${maxLength} caracteres.`;
+      }
+    }
+
+    // Buscar o inyectar feedback
+    let feedback = input.parentNode.querySelector('.validation-feedback');
+    if (error) {
+      input.classList.add('is-invalid');
+      if (!feedback) {
+        feedback = document.createElement('div');
+        feedback.className = 'validation-feedback';
+        input.parentNode.insertBefore(feedback, input.nextSibling);
+      }
+      feedback.textContent = error;
+    } else {
+      input.classList.remove('is-invalid');
+      if (feedback) {
+        feedback.remove();
+      }
+    }
+    return !error;
+  };
+
+  input.addEventListener('blur', validar);
+  input.addEventListener('input', () => {
+    if (input.classList.contains('is-invalid')) {
+      validar();
+    }
+  });
+
+  input.validarCampo = validar;
 }
