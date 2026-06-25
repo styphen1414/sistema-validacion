@@ -22,7 +22,8 @@ router.get('/usuarios', autenticar, esAdmin, async (req, res) => {
 // 2. CREAR USUARIO
 router.post('/usuarios', autenticar, esAdmin, async (req, res) => {
   const { username, password, nombre, rol, area, cedula, cargo, direccion_proyecto, firma_documentos, activo } = req.body;
-  if (!username || !password || !nombre || !rol || !cedula || !cargo) {
+  const trimmedUsername = String(username || '').trim();
+  if (!trimmedUsername || !password || !nombre || !rol || !cedula || !cargo) {
     return res.status(400).json({ error: 'Datos incompletos para crear el usuario.' });
   }
   try {
@@ -44,7 +45,7 @@ router.post('/usuarios', autenticar, esAdmin, async (req, res) => {
       area,
       cedula,
       cargo,
-      correo: username,
+      correo: trimmedUsername,
       direccion_proyecto,
       firma_documentos: isFirma,
       activo: userActivo
@@ -66,7 +67,8 @@ router.post('/usuarios', autenticar, esAdmin, async (req, res) => {
 router.put('/usuarios/:id', autenticar, esAdmin, async (req, res) => {
   const { id } = req.params;
   const { username, password, nombre, rol, area, cedula, cargo, direccion_proyecto, firma_documentos, activo } = req.body;
-  if (!username || !nombre || !rol || !cedula || !cargo) {
+  const trimmedUsername = String(username || '').trim();
+  if (!trimmedUsername || !nombre || !rol || !cedula || !cargo) {
     return res.status(400).json({ error: 'Datos incompletos para actualizar el usuario.' });
   }
   try {
@@ -87,7 +89,7 @@ router.put('/usuarios/:id', autenticar, esAdmin, async (req, res) => {
       area,
       cedula,
       cargo,
-      correo: username,
+      correo: trimmedUsername,
       direccion_proyecto,
       firma_documentos: isFirma,
       activo: userActivo

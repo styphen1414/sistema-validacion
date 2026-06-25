@@ -397,7 +397,7 @@ export async function verDetalle(id, isRefresh = false) {
                     </div>
                   `;
                 }
-              } else if (aprobacionArea.tecnico_id === state.currentUser.id) {
+              } else if (Number(aprobacionArea.tecnico_id) === Number(state.currentUser.id)) {
                 if (panelAsignacionContainer) {
                   panelAsignacionContainer.innerHTML = `
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; background: #F4F8F3; border: 1px solid var(--success-color); padding: 0.5rem 0.8rem; border-radius: var(--radius-md); margin-bottom: 0.8rem;">
@@ -446,7 +446,7 @@ export async function verDetalle(id, isRefresh = false) {
                 }
                 if (actionsButtonsRow) actionsButtonsRow.style.display = 'none';
                 if (obsInputArea) obsInputArea.style.display = 'none';
-              } else if (aprobacionArea.tecnico_id === state.currentUser.id) {
+              } else if (Number(aprobacionArea.tecnico_id) === Number(state.currentUser.id)) {
                 if (panelAsignacionContainer) {
                   panelAsignacionContainer.innerHTML = `
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; background: #F4F8F3; border: 1px solid var(--success-color); padding: 0.5rem 0.8rem; border-radius: var(--radius-md); margin-bottom: 0.8rem;">
@@ -528,7 +528,7 @@ export async function verDetalle(id, isRefresh = false) {
       let esTecnicoConResponsabilidad = false;
       if (state.currentUser.rol === 'tecnico' && state.currentUser.area !== 'director' && aprobacionArea) {
         if (['seguridad', 'gibdd', 'giitrc', 'osi'].includes(state.currentUser.area)) {
-          esTecnicoConResponsabilidad = aprobacionArea.tecnico_id === state.currentUser.id;
+          esTecnicoConResponsabilidad = Number(aprobacionArea.tecnico_id) === Number(state.currentUser.id);
         } else {
           esTecnicoConResponsabilidad = true;
         }
@@ -545,7 +545,7 @@ export async function verDetalle(id, isRefresh = false) {
       if (sol.estado !== 'borrador') {
         let puedeReabrir = false;
         if (state.currentUser.rol === 'admin') puedeReabrir = true;
-        if (state.currentUser.rol === 'solicitante' && sol.solicitante_id === state.currentUser.id) puedeReabrir = true;
+        if (state.currentUser.rol === 'solicitante' && Number(sol.solicitante_id) === Number(state.currentUser.id)) puedeReabrir = true;
         if (esTecnicoConResponsabilidad) puedeReabrir = true;
 
         if (puedeReabrir) {

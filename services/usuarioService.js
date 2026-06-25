@@ -6,7 +6,7 @@ const solicitudService = require('./solicitudService');
  */
 async function obtenerUsuarioPorCorreo(correo) {
   const result = await db.query(
-    'SELECT id, correo AS username, nombre, rol, area, cedula, cargo, correo, activo, password FROM usuarios WHERE correo = $1',
+    'SELECT id, correo AS username, nombre, rol, area, cedula, cargo, correo, activo, password FROM usuarios WHERE LOWER(correo) = LOWER($1)',
     [correo]
   );
   return result.rows[0];

@@ -103,7 +103,7 @@ export async function loginFormHandler(e) {
 
   if (loginError) loginError.classList.add('hidden');
 
-  const username = usernameInput ? usernameInput.value : '';
+  const username = usernameInput ? usernameInput.value.trim() : '';
   const password = passwordInput ? passwordInput.value : '';
 
   try {

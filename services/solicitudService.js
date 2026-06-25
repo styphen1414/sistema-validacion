@@ -465,9 +465,11 @@ async function reabrirProcesoRevision(solicitudId, autorArea, autorId, texto, ar
   try {
     await client.query('BEGIN');
 
+    const nuevoEstado = autorArea === 'solicitante' ? 'borrador' : 'en_revision';
+
     await client.query(
-      "UPDATE solicitudes SET estado = 'en_revision', fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = $1",
-      [solicitudId]
+      "UPDATE solicitudes SET estado = $1, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = $2",
+      [nuevoEstado, solicitudId]
     );
 
     await inicializarAprobaciones(solicitudId, areasValidadoras, client);

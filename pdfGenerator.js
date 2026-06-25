@@ -140,8 +140,25 @@ function generarReportePDFInternal(doc, solicitud, aprobaciones, directorSigner)
   // 2. DETALLES TÉCNICOS INGRESADOS
   renderSectionHeader('2. DETALLES TÉCNICOS INGRESADOS');
 
-  const campos = solicitud.campos;
-  const datos = solicitud.datos;
+  let campos = [];
+  if (solicitud.campos) {
+    if (Array.isArray(solicitud.campos)) {
+      campos = solicitud.campos;
+    } else if (typeof solicitud.campos === 'string') {
+      try {
+        campos = JSON.parse(solicitud.campos);
+      } catch (e) {}
+    }
+  }
+
+  let datos = solicitud.datos || {};
+  if (typeof datos === 'string') {
+    try {
+      datos = JSON.parse(datos);
+    } catch (e) {
+      datos = {};
+    }
+  }
   
   // Función auxiliar para formatear los valores de firmantes dinámicos compuestos en el cuerpo del PDF
   const formatearValorFirmanteBackend = (val) => {

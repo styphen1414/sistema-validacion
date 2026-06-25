@@ -1,6 +1,6 @@
 {
   "name": "sistema-validacion-tecnica",
-  "version": "1.0.0",
+  "version": "1.5.6",
   "description": "Sistema de Validación Técnica (SVT) minimalista con control de flujo paralelos y reapertura integral.",
   "main": "server.js",
   "scripts": {

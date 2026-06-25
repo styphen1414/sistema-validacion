@@ -10,8 +10,9 @@ router.post('/login', async (req, res) => {
   if (!username || !password) {
     return res.status(400).json({ error: 'Usuario y contraseña son requeridos.' });
   }
+  const cleanUsername = String(username).trim();
   try {
-    const usuario = await usuarioService.obtenerUsuarioPorCorreo(username);
+    const usuario = await usuarioService.obtenerUsuarioPorCorreo(cleanUsername);
     if (!usuario) {
       return res.status(400).json({ error: 'Usuario o contraseña incorrectos.' });
     }

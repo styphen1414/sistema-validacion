@@ -394,7 +394,7 @@ export async function usuarioFormSubmitHandler(e) {
   const nombre = usrNombre ? usrNombre.value : '';
   const cedula = usrCedula ? usrCedula.value : '';
   const cargo = usrCargo ? usrCargo.value : '';
-  const username = usrUsername ? usrUsername.value : '';
+  const username = usrUsername ? usrUsername.value.trim() : '';
   const password = usrPassword ? usrPassword.value : '';
   const rol = usrRol ? usrRol.value : '';
   const area = usrArea ? usrArea.value : '';

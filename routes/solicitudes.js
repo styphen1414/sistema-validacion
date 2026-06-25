@@ -250,7 +250,7 @@ router.put('/:id', autenticar, async (req, res) => {
       if (solicitud.estado === 'en_revision' || solicitud.estado === 'observado') {
         if (['seguridad', 'gibdd', 'giitrc', 'osi'].includes(area)) {
           const aprobacion = await solicitudService.obtenerAprobacionArea(id, area);
-          if (aprobacion && aprobacion.tecnico_id === userId) {
+          if (aprobacion && Number(aprobacion.tecnico_id) === Number(userId)) {
             autorizado = true;
           }
         } else {
@@ -321,7 +321,7 @@ router.post('/:id/aprobar', autenticar, async (req, res) => {
       if (!aprobacion.tecnico_id) {
         return res.status(400).json({ error: 'Debes asignarte la solicitud antes de poder aprobarla.' });
       }
-      if (aprobacion.tecnico_id !== tecnicoId) {
+      if (Number(aprobacion.tecnico_id) !== Number(tecnicoId)) {
         return res.status(400).json({ error: 'Esta solicitud está asignada a otro técnico de tu área.' });
       }
     }
@@ -412,7 +412,7 @@ router.post('/:id/observar', autenticar, async (req, res) => {
       if (!aprobacion.tecnico_id) {
         return res.status(400).json({ error: 'Debes asignarte la solicitud antes de poder observarla.' });
       }
-      if (aprobacion.tecnico_id !== tecnicoId) {
+      if (Number(aprobacion.tecnico_id) !== Number(tecnicoId)) {
         return res.status(400).json({ error: 'Esta solicitud está asignada a otro técnico de tu área.' });
       }
     }
@@ -452,7 +452,7 @@ router.post('/:id/asignar', autenticar, async (req, res) => {
     if (!aprobacion) {
       return res.status(400).json({ error: 'Esta solicitud no requiere la validación de tu área.' });
     }
-    if (aprobacion.tecnico_id && aprobacion.tecnico_id !== tecnicoId) {
+    if (aprobacion.tecnico_id && Number(aprobacion.tecnico_id) !== Number(tecnicoId)) {
       return res.status(400).json({ error: 'Esta solicitud ya ha sido asignada a otro técnico de tu área.' });
     }
 
@@ -478,7 +478,7 @@ router.post('/:id/desasignar', autenticar, async (req, res) => {
     if (!aprobacion) {
       return res.status(400).json({ error: 'Esta solicitud no requiere la validación de tu área.' });
     }
-    if (aprobacion.tecnico_id !== tecnicoId) {
+    if (Number(aprobacion.tecnico_id) !== Number(tecnicoId)) {
       return res.status(400).json({ error: 'No estás asignado a esta solicitud, no puedes liberarla.' });
     }
     if (aprobacion.estado === 'aprobado') {
@@ -520,7 +520,7 @@ router.post('/:id/reabrir', autenticar, async (req, res) => {
     } else if (rol === 'tecnico' && area && area !== 'director' && solicitud.areas_validadoras.includes(area)) {
       if (['seguridad', 'gibdd', 'giitrc', 'osi'].includes(area)) {
         const aprobacion = await solicitudService.obtenerAprobacionArea(id, area);
-        if (aprobacion && aprobacion.tecnico_id === userId) {
+        if (aprobacion && Number(aprobacion.tecnico_id) === Number(userId)) {
           autorizado = true;
         }
       } else {

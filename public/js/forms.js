@@ -2,6 +2,8 @@ import { state } from './state.js';
 import { toast, escaparHTML } from './utils.js';
 import { getAuthHeaders } from './api.js';
 
+let isSubmitting = false;
+
 export function renderizarCamposDinamicos(tipoId, valoresExistentes = null, customContainer = null) {
   const container = customContainer || document.getElementById('campos-dinamicos-container');
   if (!container) return;
@@ -911,7 +913,17 @@ export async function enviarFormulario(enviar) {
     return;
   }
 
-  const datos = {};
+  if (isSubmitting) return;
+  isSubmitting = true;
+
+  const btnGuardarBorrador = document.getElementById('btn-guardar-borrador');
+  const btnEnviarRevision = document.getElementById('btn-enviar-revision');
+
+  if (btnGuardarBorrador) btnGuardarBorrador.disabled = true;
+  if (btnEnviarRevision) btnEnviarRevision.disabled = true;
+
+  try {
+    const datos = {};
   if (camposDinamicosContainer) {
     const inputs = camposDinamicosContainer.querySelectorAll('input:not(.grid-cell-input):not(.text-list-input), textarea:not(.grid-cell-input):not(.text-list-input), select:not(.grid-cell-input)');
     inputs.forEach(input => {
@@ -1009,6 +1021,8 @@ export async function enviarFormulario(enviar) {
 
     if (!formValido) {
       toast('Por favor corrige los errores en el formulario.');
+      if (btnGuardarBorrador) btnGuardarBorrador.disabled = false;
+      if (btnEnviarRevision) btnEnviarRevision.disabled = false;
       return;
     }
 
@@ -1426,6 +1440,8 @@ export async function enviarFormulario(enviar) {
 
     if (errorMsg) {
       toast(errorMsg);
+      if (btnGuardarBorrador) btnGuardarBorrador.disabled = false;
+      if (btnEnviarRevision) btnEnviarRevision.disabled = false;
       return;
     }
   }
@@ -1436,7 +1452,6 @@ export async function enviarFormulario(enviar) {
     enviar
   };
 
-  try {
     let response;
     if (solicitudId) {
       response = await fetch(`/api/solicitudes/${solicitudId}`, {
@@ -1464,6 +1479,10 @@ export async function enviarFormulario(enviar) {
     await cargarBandeja(true);
   } catch (error) {
     toast(error.message);
+  } finally {
+    isSubmitting = false;
+    if (btnGuardarBorrador) btnGuardarBorrador.disabled = false;
+    if (btnEnviarRevision) btnEnviarRevision.disabled = false;
   }
 }
 
