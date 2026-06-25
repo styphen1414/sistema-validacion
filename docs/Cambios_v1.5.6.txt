@@ -1,0 +1,57 @@
+======================================================================
+SISTEMA DE VALIDACIÓN TÉCNICA (SVT) - NOTAS DE CAMBIOS VERSIÓN 1.5.6
+======================================================================
+
+Fecha: 25 de Junio, 2026
+Autor: Antigravity AI & David Paredes
+Versión: 1.5.6 (Corrección de Flujos Técnicos, Doble Registro, Casing/Trim de Login y Edición en Reapertura)
+
+----------------------------------------------------------------------
+DESCRIPCIÓN GENERAL
+----------------------------------------------------------------------
+Esta versión menor se enfoca en resolver errores críticos de usabilidad, corregir problemas de inconsistencia en el inicio de sesión, prevenir la duplicidad involuntaria al enviar solicitudes y habilitar un flujo interactivo óptimo para que los solicitantes puedan editar sus requerimientos de forma inmediata al realizar una reapertura.
+
+1. **Coerción de IDs en el Frontend para todas las Áreas Técnicas:**
+   - Corrección de un fallo crítico donde los analistas de áreas técnicas (OSI, Seguridad, GBDD, Infraestructura, etc.) no podían aprobar, observar o realizar acciones adicionales debido a una comparación estricta de tipos (`===`) entre el ID del técnico (numérico) y el ID del usuario actual (cadena de texto).
+   - Implementación de la coerción a `Number()` en todas las evaluaciones del panel de acciones en el cliente para unificar el comportamiento transaccional de todos los analistas del sistema.
+
+2. **Prevención de Doble Envío de Solicitudes (Doble Registro):**
+   - Introducción de un bloqueo semafórico (`isSubmitting`) en el frontend al procesar y guardar formularios.
+   - Desactivación física y visual de los botones de "Guardar Borrador" y "Enviar a Revisión" al iniciar el envío, y recuperación automática de su estado activo ante cualquier excepción mediante un bloque central `try...finally`.
+
+3. **Robustecimiento en el Parseo de Campos y Datos en el PDF:**
+   - Adición de un procesamiento defensivo en la lógica de generación del reporte institucional PDF, permitiendo procesar y estructurar dinámicamente columnas de tipo JSONB tanto en formato de objeto como de texto serializado de forma segura, garantizando la consistencia y cálculo del código de seguimiento dinámico.
+
+4. **Corrección de Inicio de Sesión (Case-Insensitive e Input Trim):**
+   - Conversión de la búsqueda de correo a formato insensible a mayúsculas (`LOWER(correo) = LOWER($1)`) en la base de datos para prevenir fallas al iniciar sesión desde dispositivos con autocorrección.
+   - Implementación de limpieza con `.trim()` al capturar, crear o actualizar correos de usuario tanto en frontend (inputs) como en backend (endpoints de administrador y login), evitando la acumulación de espacios invisibles al copiar y pegar credenciales.
+
+5. **Capacidad de Edición tras Reapertura por parte del Solicitante:**
+   - Reestructuración del proceso de reapertura en el backend. Cuando el proceso de revisión es reabierto por el **solicitante**, el estado de la solicitud se define como `'borrador'` en vez de `'en_revision'`.
+   - Esto habilita inmediatamente al solicitante el botón de edición y corrección del formulario antes de que este se asigne de nuevo a revisión técnica.
+
+----------------------------------------------------------------------
+CAMBIOS REALIZADOS
+----------------------------------------------------------------------
+
+1. Base de Datos & Servicios Backend (services/solicitudService.js, services/usuarioService.js):
+   - Modificación en `reabrirProcesoRevision` para cambiar condicionalmente el estado a `'borrador'` si es iniciado por el solicitante.
+   - Ajuste en `obtenerUsuarioPorCorreo` para realizar comparación case-insensitive (`LOWER`).
+
+2. Enrutadores del Servidor Express (routes/admin.js, routes/usuarios.js):
+   - Aplicación de limpieza con `.trim()` a los parámetros de correo en la creación de usuarios, edición de usuarios e inicio de sesión.
+
+3. PDF Generator (pdfGenerator.js):
+   - Estructuración de parseo seguro con bloques `try...catch` para variables JSONB de campos y datos antes de generar el documento final.
+
+4. Lógica de Cliente Frontend (public/js/forms.js, public/js/modals.js, public/js/auth.js, public/js/admin.js):
+   - Añadido de bandera `isSubmitting` y bloqueo de botones en `enviarFormulario`.
+   - Coerción a `Number` en comparaciones de responsabilidad técnica y reapertura de procesos en `modals.js`.
+   - Inyección de `.trim()` al capturar datos de usuario en formularios en `auth.js` y `admin.js`.
+
+----------------------------------------------------------------------
+CÓMO DESPLEGAR / ACTUALIZAR
+----------------------------------------------------------------------
+1. Aplicar la versión '1.5.6' mediante git (`git checkout tags/1.5.6` o `git pull origin main`).
+2. Iniciar el servidor mediante 'npm run dev' o 'npm start'.
+======================================================================
