@@ -30,13 +30,20 @@ Esta versión menor se enfoca en resolver errores críticos de usabilidad, corre
    - Reestructuración del proceso de reapertura en el backend. Cuando el proceso de revisión es reabierto por el **solicitante**, el estado de la solicitud se define como `'borrador'` en vez de `'en_revision'`.
    - Esto habilita inmediatamente al solicitante el botón de edición y corrección del formulario antes de que este se asigne de nuevo a revisión técnica.
 
+6. **Congelación de Campos en Aprobados y Sincronización con Limpieza de Datos:**
+   - Al aprobar una solicitud, se congelan sus campos en la columna `campos` de la tabla `solicitudes` para garantizar que siempre se renderice e imprima con la plantilla vigente en el momento exacto de su aprobación.
+   - Implementación de limpieza automatizada de datos (`limpiarDatosConCampos`) que elimina claves obsoletas o restaura valores de tipo incompatibles (evitando mostrar objetos JSON crudos en inputs de texto) al reabrir una solicitud o editar una plantilla activa.
+
 ----------------------------------------------------------------------
 CAMBIOS REALIZADOS
 ----------------------------------------------------------------------
 
-1. Base de Datos & Servicios Backend (services/solicitudService.js, services/usuarioService.js):
-   - Modificación en `reabrirProcesoRevision` para cambiar condicionalmente el estado a `'borrador'` si es iniciado por el solicitante.
+1. Base de Datos & Servicios Backend (init_db.sql, services/solicitudService.js, services/usuarioService.js):
+   - Modificación en `reabrirProcesoRevision` para cambiar condicionalmente el estado a `'borrador'` si es iniciado por el solicitante, limpiar datos de campos obsoletos o tipos incompatibles y guardar el snapshot actual de campos.
    - Ajuste en `obtenerUsuarioPorCorreo` para realizar comparación case-insensitive (`LOWER`).
+   - Implementación del helper `limpiarDatosConCampos` en `solicitudService.js`.
+   - Ajuste en `actualizarTipoSolicitud` en `usuarioService.js` para limpiar y guardar campos y datos actualizados en todas las solicitudes activas (`en_revision`, `observado`) cuando la plantilla es modificada por un administrador.
+   - Adición de columnas `areas_validadoras` y `campos` JSONB a la definición de la tabla `solicitudes` en `init_db.sql`.
 
 2. Enrutadores del Servidor Express (routes/admin.js, routes/usuarios.js):
    - Aplicación de limpieza con `.trim()` a los parámetros de correo en la creación de usuarios, edición de usuarios e inicio de sesión.
