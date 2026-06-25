@@ -1583,11 +1583,11 @@ export function registrarValidacionTiempoReal(input, tipo, required, label, maxL
   };
 
   input.addEventListener('blur', validar);
-  input.addEventListener('input', () => {
-    if (input.classList.contains('is-invalid')) {
-      validar();
-    }
-  });
+  input.addEventListener('input', validar);
+
+  if (input.value.trim() !== '') {
+    validar();
+  }
 
   input.validarCampo = validar;
 }
