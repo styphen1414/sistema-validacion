@@ -60,6 +60,8 @@ CREATE TABLE solicitudes (
     tipo_solicitud_id INT REFERENCES tipos_solicitud(id) ON DELETE CASCADE,
     datos JSONB NOT NULL, -- Los valores ingresados por el solicitante
     estado VARCHAR(20) NOT NULL DEFAULT 'borrador' CHECK (estado IN ('borrador', 'en_revision', 'aprobado', 'observado')),
+    areas_validadoras JSONB NULL,
+    campos JSONB NULL,
     fecha_creacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     fecha_actualizacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

@@ -77,9 +77,12 @@ async function crearSolicitud(solicitanteId, tipoSolicitudId, datos, estado, are
   try {
     await client.query('BEGIN');
 
+    const templateRes = await client.query('SELECT campos FROM tipos_solicitud WHERE id = $1', [tipoSolicitudId]);
+    const campos = templateRes.rows[0]?.campos || [];
+
     const insertRes = await client.query(
-      'INSERT INTO solicitudes (solicitante_id, tipo_solicitud_id, datos, estado, areas_validadoras) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [solicitanteId, tipoSolicitudId, datos, estado, JSON.stringify(areas)]
+      'INSERT INTO solicitudes (solicitante_id, tipo_solicitud_id, datos, estado, areas_validadoras, campos) VALUES ($1, $2, $3, $4, $5, $6::jsonb) RETURNING *',
+      [solicitanteId, tipoSolicitudId, datos, estado, JSON.stringify(areas), JSON.stringify(campos)]
     );
     const solicitud = insertRes.rows[0];
 
@@ -265,8 +268,8 @@ async function obtenerEstadisticas(usuario) {
  */
 async function obtenerSolicitudDetalle(id) {
   const result = await db.query(
-    `SELECT s.id, s.solicitante_id, s.tipo_solicitud_id, s.datos, s.estado, s.fecha_creacion, s.fecha_actualizacion, s.areas_validadoras,
-            u.nombre AS solicitante_nombre, u.cedula AS solicitante_cedula, ts.nombre AS tipo_nombre, ts.codigo AS tipo_codigo, ts.campos,
+    `SELECT s.id, s.solicitante_id, s.tipo_solicitud_id, s.datos, s.estado, s.fecha_creacion, s.fecha_actualizacion, s.areas_validadoras, s.campos AS solicitud_campos,
+            u.nombre AS solicitante_nombre, u.cedula AS solicitante_cedula, ts.nombre AS tipo_nombre, ts.codigo AS tipo_codigo, ts.campos AS plantilla_campos,
             ts.areas_validadoras AS plantilla_areas_validadoras
      FROM solicitudes s
      JOIN usuarios u ON s.solicitante_id = u.id
@@ -274,7 +277,15 @@ async function obtenerSolicitudDetalle(id) {
      WHERE s.id = $1`,
     [id]
   );
-  return result.rows[0];
+  const sol = result.rows[0];
+  if (sol) {
+    if (sol.estado === 'aprobado' && sol.solicitud_campos) {
+      sol.campos = sol.solicitud_campos;
+    } else {
+      sol.campos = sol.plantilla_campos;
+    }
+  }
+  return sol;
 }
 
 /**
@@ -325,9 +336,15 @@ async function actualizarSolicitud(id, datos, nuevoEstado, inicializarAprobacion
   try {
     await client.query('BEGIN');
 
+    // Get current template campos to store in the request
+    const solRes = await client.query('SELECT tipo_solicitud_id FROM solicitudes WHERE id = $1', [id]);
+    const tipoId = solRes.rows[0]?.tipo_solicitud_id;
+    const templateRes = await client.query('SELECT campos FROM tipos_solicitud WHERE id = $1', [tipoId]);
+    const campos = templateRes.rows[0]?.campos || [];
+
     await client.query(
-      'UPDATE solicitudes SET datos = $1, estado = $2, areas_validadoras = $3, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = $4',
-      [datos, nuevoEstado, JSON.stringify(areasValidadoras), id]
+      'UPDATE solicitudes SET datos = $1, estado = $2, areas_validadoras = $3, campos = $4::jsonb, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = $5',
+      [datos, nuevoEstado, JSON.stringify(areasValidadoras), JSON.stringify(campos), id]
     );
 
     let dispararCorreo = false;
@@ -458,6 +475,68 @@ async function desasignarTecnico(solicitudId, area, tecnicoId) {
 }
 
 /**
+ * Limpia el objeto de datos en base a los campos actuales del formulario,
+ * eliminando claves inexistentes o vaciando/reseteando valores cuyos tipos de campo cambiaron
+ * para evitar mostrar estructuras de datos incompatibles (ej. JSON strings en vez de cadenas).
+ */
+function limpiarDatosConCampos(datos, campos) {
+  if (!datos || typeof datos !== 'object') return {};
+  const nuevosDatos = {};
+  const camposMap = new Map();
+  
+  const camposArray = Array.isArray(campos) ? campos : [];
+  camposArray.forEach(c => {
+    if (c && c.name) {
+      camposMap.set(c.name, c);
+    }
+  });
+
+  for (const [key, value] of Object.entries(datos)) {
+    if (camposMap.has(key)) {
+      const campo = camposMap.get(key);
+      const type = campo.type;
+      let valueIsInvalid = false;
+
+      if (type === 'firmante' || type === 'firmante_seccion') {
+        if (typeof value === 'string') {
+          try {
+            const parsed = JSON.parse(value);
+            if (!parsed || typeof parsed !== 'object') valueIsInvalid = true;
+          } catch (e) {
+            valueIsInvalid = true;
+          }
+        } else if (typeof value !== 'object' || value === null) {
+          valueIsInvalid = true;
+        }
+      } else if (type === 'firmante_list' || type === 'text_list' || type === 'grid' || type === 'fixed_grid' || type === 'fixed_grid_dynamic_cols' || type === 'fixed_grid_fixed_cols') {
+        if (!Array.isArray(value)) {
+          valueIsInvalid = true;
+        }
+      } else {
+        if (typeof value === 'object' && value !== null) {
+          valueIsInvalid = true;
+        }
+      }
+
+      if (valueIsInvalid) {
+        if (type === 'checkbox') {
+          nuevosDatos[key] = '';
+        } else if (type === 'firmante' || type === 'firmante_seccion') {
+          nuevosDatos[key] = JSON.stringify({ nombre: '', cedula: '', cargo: '' });
+        } else if (type === 'firmante_list' || type === 'text_list' || type === 'grid' || type === 'fixed_grid' || type === 'fixed_grid_dynamic_cols' || type === 'fixed_grid_fixed_cols') {
+          nuevosDatos[key] = [];
+        } else {
+          nuevosDatos[key] = '';
+        }
+      } else {
+        nuevosDatos[key] = value;
+      }
+    }
+  }
+  return nuevosDatos;
+}
+
+/**
  * Reabre el proceso de revisión completa (transaccional).
  */
 async function reabrirProcesoRevision(solicitudId, autorArea, autorId, texto, areasValidadoras, inicializarAprobaciones) {
@@ -465,11 +544,23 @@ async function reabrirProcesoRevision(solicitudId, autorArea, autorId, texto, ar
   try {
     await client.query('BEGIN');
 
+    // Obtener los datos actuales de la solicitud para su limpieza
+    const solRes = await client.query('SELECT tipo_solicitud_id, datos FROM solicitudes WHERE id = $1', [solicitudId]);
+    const tipoId = solRes.rows[0]?.tipo_solicitud_id;
+    const datos = solRes.rows[0]?.datos || {};
+
+    // Obtener los campos actualizados de la plantilla
+    const templateRes = await client.query('SELECT campos FROM tipos_solicitud WHERE id = $1', [tipoId]);
+    const campos = templateRes.rows[0]?.campos || [];
+
+    // Limpiar campos obsoletos o con tipos cambiados en datos
+    const datosLimpios = limpiarDatosConCampos(datos, campos);
+
     const nuevoEstado = autorArea === 'solicitante' ? 'borrador' : 'en_revision';
 
     await client.query(
-      "UPDATE solicitudes SET estado = $1, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = $2",
-      [nuevoEstado, solicitudId]
+      "UPDATE solicitudes SET estado = $1, campos = $2::jsonb, datos = $3::jsonb, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = $4",
+      [nuevoEstado, JSON.stringify(campos), JSON.stringify(datosLimpios), solicitudId]
     );
 
     await inicializarAprobaciones(solicitudId, areasValidadoras, client);
@@ -493,11 +584,11 @@ async function reabrirProcesoRevision(solicitudId, autorArea, autorId, texto, ar
  */
 async function obtenerDatosPDF(solicitudId) {
   const solRes = await db.query(
-    `SELECT s.id, s.datos, s.estado, s.fecha_creacion, s.fecha_actualizacion, s.areas_validadoras,
+    `SELECT s.id, s.datos, s.estado, s.fecha_creacion, s.fecha_actualizacion, s.areas_validadoras, s.campos AS solicitud_campos,
             u.nombre AS solicitante_nombre, u.cedula AS solicitante_cedula,
             u.cargo AS solicitante_cargo, u.correo AS solicitante_correo,
             u.direccion_proyecto AS solicitante_direccion_proyecto,
-            ts.nombre AS tipo_nombre, ts.codigo AS tipo_codigo, ts.campos
+            ts.nombre AS tipo_nombre, ts.codigo AS tipo_codigo, ts.campos AS plantilla_campos
      FROM solicitudes s
      JOIN usuarios u ON s.solicitante_id = u.id
      JOIN tipos_solicitud ts ON s.tipo_solicitud_id = ts.id
@@ -505,6 +596,13 @@ async function obtenerDatosPDF(solicitudId) {
     [solicitudId]
   );
   if (solRes.rows.length === 0) return null;
+  const solicitud = solRes.rows[0];
+
+  if (solicitud.estado === 'aprobado' && solicitud.solicitud_campos) {
+    solicitud.campos = solicitud.solicitud_campos;
+  } else {
+    solicitud.campos = solicitud.plantilla_campos;
+  }
 
   const apRes = await db.query(
     `SELECT a.area, a.estado, a.fecha, a.observacion, u.nombre AS tecnico_nombre,
@@ -545,5 +643,6 @@ module.exports = {
   asignarTecnico,
   desasignarTecnico,
   reabrirProcesoRevision,
-  obtenerDatosPDF
+  obtenerDatosPDF,
+  limpiarDatosConCampos
 };

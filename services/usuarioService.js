@@ -152,9 +152,12 @@ async function actualizarTipoSolicitud(id, formObj, inicializarAprobaciones) {
   try {
     await client.query('BEGIN');
 
+    const parsedAreas = Array.isArray(areas_validadoras) ? areas_validadoras : JSON.parse(areas_validadoras);
+    const parsedCampos = Array.isArray(campos) ? campos : JSON.parse(campos);
+
     const result = await client.query(
       'UPDATE tipos_solicitud SET codigo = $1, nombre = $2, descripcion = $3, campos = $4::jsonb, areas_validadoras = $5::jsonb, mail_destinatario = $6, mail_cc = $7, mail_asunto = $8, mail_cuerpo = $9, mail_progreso = $10 WHERE id = $11 RETURNING *',
-      [codigo, nombre, descripcion, campos, areas_validadoras, mail_destinatario, mail_cc, mail_asunto, mail_cuerpo, mail_progreso, id]
+      [codigo, nombre, descripcion, JSON.stringify(parsedCampos), JSON.stringify(parsedAreas), mail_destinatario, mail_cc, mail_asunto, mail_cuerpo, mail_progreso, id]
     );
 
     if (result.rows.length === 0) {
@@ -167,15 +170,13 @@ async function actualizarTipoSolicitud(id, formObj, inicializarAprobaciones) {
       [id]
     );
 
-    const parsedAreas = Array.isArray(areas_validadoras) ? areas_validadoras : JSON.parse(areas_validadoras);
-    const parsedCampos = Array.isArray(campos) ? campos : JSON.parse(campos);
-
     for (const sol of activeSolsRes.rows) {
-      const areasRecalculadas = solicitudService.calcularAreasValidadoras(parsedCampos, sol.datos, parsedAreas);
+      const datosLimpios = solicitudService.limpiarDatosConCampos(sol.datos, parsedCampos);
+      const areasRecalculadas = solicitudService.calcularAreasValidadoras(parsedCampos, datosLimpios, parsedAreas);
 
       await client.query(
-        "UPDATE solicitudes SET areas_validadoras = $1 WHERE id = $2",
-        [JSON.stringify(areasRecalculadas), sol.id]
+        "UPDATE solicitudes SET areas_validadoras = $1, campos = $2::jsonb, datos = $3::jsonb WHERE id = $4",
+        [JSON.stringify(areasRecalculadas), JSON.stringify(parsedCampos), JSON.stringify(datosLimpios), sol.id]
       );
 
       await inicializarAprobaciones(sol.id, areasRecalculadas, client);
