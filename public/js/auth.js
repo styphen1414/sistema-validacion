@@ -12,7 +12,33 @@ export function mostrarLogin() {
   if (loginContainer) loginContainer.classList.remove('hidden');
   if (appContainer) appContainer.classList.add('hidden');
   document.body.classList.add('login-body');
-  if (usernameInput) usernameInput.value = '';
+  if (usernameInput) {
+    usernameInput.value = '';
+    if (!usernameInput.dataset.filterAttached) {
+      usernameInput.dataset.filterAttached = 'true';
+      const regexNoPermitido = /[^a-zA-Z0-9.@_\-+]/g;
+      
+      usernameInput.addEventListener('input', () => {
+        let val = usernameInput.value;
+        let cleaned = val.replace(regexNoPermitido, '');
+        if (cleaned.length > 100) {
+          cleaned = cleaned.slice(0, 100);
+        }
+        if (val !== cleaned) {
+          usernameInput.value = cleaned;
+        }
+      });
+      
+      usernameInput.addEventListener('keypress', (e) => {
+        if (e.key.length === 1) {
+          regexNoPermitido.lastIndex = 0;
+          if (regexNoPermitido.test(e.key)) {
+            e.preventDefault();
+          }
+        }
+      });
+    }
+  }
   if (passwordInput) passwordInput.value = '';
   if (loginError) loginError.classList.add('hidden');
 }

@@ -22,9 +22,10 @@ Esta versión menor se enfoca en resolver errores críticos de usabilidad, corre
 3. **Robustecimiento en el Parseo de Campos y Datos en el PDF:**
    - Adición de un procesamiento defensivo en la lógica de generación del reporte institucional PDF, permitiendo procesar y estructurar dinámicamente columnas de tipo JSONB tanto en formato de objeto como de texto serializado de forma segura, garantizando la consistencia y cálculo del código de seguimiento dinámico.
 
-4. **Corrección de Inicio de Sesión (Case-Insensitive e Input Trim):**
+4. **Corrección de Inicio de Sesión (Case-Insensitive, Input Trim y Filtro XSS):**
    - Conversión de la búsqueda de correo a formato insensible a mayúsculas (`LOWER(correo) = LOWER($1)`) en la base de datos para prevenir fallas al iniciar sesión desde dispositivos con autocorrección.
    - Implementación de limpieza con `.trim()` al capturar, crear o actualizar correos de usuario tanto en frontend (inputs) como en backend (endpoints de administrador y login), evitando la acumulación de espacios invisibles al copiar y pegar credenciales.
+   - Restricción del textbox de usuario en el login para permitir únicamente caracteres estándar de correo (`a-zA-Z0-9.@_\-+`), bloqueando activamente espacios, la letra `ñ`/`Ñ`, acentos y cualquier símbolo especial no seguro a fin de mitigar inyecciones XSS.
 
 5. **Capacidad de Edición tras Reapertura por parte del Solicitante:**
    - Reestructuración del proceso de reapertura en el backend. Cuando el proceso de revisión es reabierto por el **solicitante**, el estado de la solicitud se define como `'borrador'` en vez de `'en_revision'`.
@@ -54,7 +55,9 @@ CAMBIOS REALIZADOS
 4. Lógica de Cliente Frontend (public/js/forms.js, public/js/modals.js, public/js/auth.js, public/js/admin.js):
    - Añadido de bandera `isSubmitting` y bloqueo de botones en `enviarFormulario`.
    - Coerción a `Number` en comparaciones de responsabilidad técnica y reapertura de procesos en `modals.js`.
-   - Inyección de `.trim()` al capturar datos de usuario en formularios en `auth.js` y `admin.js`.
+   - Inyección de `.trim()` y filtros restrictivos de caracteres seguros (XSS / regex) en el textbox de login en `auth.js`.
+   - Validación interactiva en tiempo real sobre todos los inputs (`input`) e inicialización de errores al abrir borradores en `forms.js`.
+   - Inyección de `.trim()` al capturar datos de usuario en formularios en `admin.js`.
 
 ----------------------------------------------------------------------
 CÓMO DESPLEGAR / ACTUALIZAR
