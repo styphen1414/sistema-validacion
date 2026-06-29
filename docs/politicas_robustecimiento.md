@@ -1,122 +1,80 @@
 # Guía de Políticas de Robustecimiento de Seguridad (SVT)
 
-Este documento detalla las políticas y mejores prácticas recomendadas a futuro para fortalecer el Sistema de Validación Técnica (SVT). Su enfoque principal es la mitigación preventiva de vulnerabilidades de tipo **SQL Injection** y **Cross-Site Scripting (XSS)** en la pila tecnológica de Node.js, Express y PostgreSQL.
+Este documento detalla los controles de seguridad del Sistema de Validación Técnica (SVT), separándolos claramente entre los **controles aplicados** (el estado actual) y las **políticas sugeridas** (acciones recomendadas a futuro) para mitigar vulnerabilidades de tipo **SQL Injection** y **Cross-Site Scripting (XSS)** en la pila tecnológica de Node.js, Express y PostgreSQL.
 
 ---
 
-## 1. Defensa Preventiva contra SQL Injection
+## 1. Defensa contra SQL Injection
 
 La inyección SQL ocurre cuando datos proporcionados por el usuario se concatenan directamente en una consulta, permitiendo que el motor de la base de datos interprete dichos datos como instrucciones.
 
-### 1.1 Mantenimiento Estricto de Consultas Parametrizadas
-* **Regla de Oro**: Ninguna consulta SQL enviada a la base de datos a través de `db.query` (o clientes afines) debe utilizar interpolación de variables de JavaScript (ej. usar ` `${variable}` ` o concatenaciones con `+`).
-* **Implementación Correcta**: Utilizar exclusivamente marcadores de posición posicionales (`$1`, `$2`, etc.) e inyectar los valores en el segundo argumento de `query` en forma de arreglo.
-  ```javascript
-  // CORRECTO: Parametrizado
-  const query = 'SELECT * FROM usuarios WHERE correo = $1';
-  const result = await db.query(query, [emailInput]);
-  ```
+### 1.1 Controles Actualmente Aplicados
+* **Consultas Parametrizadas**:
+  Todas las consultas e interacciones de base de datos dentro de los servicios backend (por ejemplo en `services/usuarioService.js` y `services/solicitudService.js`) emplean marcadores de posición (`$1`, `$2`, etc.) y pasan los valores como un arreglo de parámetros independiente.
+  * *Ejemplo real*:
+    `db.query('SELECT ... WHERE LOWER(correo) = LOWER($1)', [correo])`
+  Esto asegura que el motor de base de datos trate los parámetros puramente como datos literales y no como código SQL ejecutable.
 
-### 1.2 Principio de Menor Privilegio en Base de Datos
-* **Definición**: El usuario de base de datos que utiliza la aplicación en producción no debe tener permisos administrativos generales.
-* **Políticas a aplicar**:
-  1. Configurar un rol específico en PostgreSQL para la aplicación (ej. `svt_app`).
-  2. Otorgar permisos limitados exclusivamente a las tablas y vistas del sistema (`SELECT`, `INSERT`, `UPDATE`, `DELETE`).
-  3. Denegar permisos para alterar estructuras de tablas (`ALTER TABLE`), borrar bases de datos (`DROP DATABASE`), o crear nuevos usuarios.
-  4. Bloquear el acceso del usuario de la aplicación a tablas de sistema o administrativas de PostgreSQL.
+### 1.2 Controles que se Podrían Aplicar (A Futuro)
+* **Principio de Menor Privilegio en Base de Datos**:
+  1. Crear un rol específico en PostgreSQL para la aplicación (ej. `svt_app`).
+  2. Otorgar permisos exclusivamente de DML (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) en las tablas necesarias, restringiendo DDL (`ALTER TABLE`, `DROP TABLE`).
+* **Uso de Constructores de Consultas u ORM**:
+  Adoptar un query builder como Knex.js o un ORM como Prisma/Sequelize para automatizar y encapsular la parametrización de consultas complejas sin requerir SQL crudo dinámico.
 
 ---
 
-## 2. Defensa Multicapa contra Cross-Site Scripting (XSS)
+## 2. Defensa contra Cross-Site Scripting (XSS)
 
-El XSS ocurre cuando un atacante logra inyectar scripts maliciosos en la aplicación que luego se ejecutan en el navegador de otros usuarios.
+El XSS ocurre cuando un atacante inyecta scripts en la aplicación que luego se ejecutan en el navegador de otros usuarios.
 
-### 2.1 Content Security Policy (CSP) y Helmet en Express
-La Política de Seguridad de Contenido (CSP) es una capa de seguridad en la cabecera HTTP que indica al navegador qué orígenes de scripts, hojas de estilo e imágenes son válidos y seguros para ejecutar.
+### 2.1 Controles Actualmente Aplicados
+* **Escapado de Entidades en Frontend**:
+  El archivo `public/js/utils.js` cuenta con la función `escaparHTML` que sustituye caracteres reservados del HTML (`&`, `<`, `>`, `"`, `'`, `/`) por sus entidades seguras (`&amp;`, `&lt;`, etc.), desactivando cualquier código HTML/JS antes de concatenarlo en la vista.
+* **Uso seguro del DOM**:
+  La manipulación de elementos HTML dinámicos en el frontend prioriza el uso de `.textContent` o `.innerText` sobre `.innerHTML` para valores provistos por usuarios, forzando al navegador a interpretarlos como texto plano.
+* **Filtros de Entrada interactivos**:
+  La función `aplicarFiltroEntrada` en `public/js/forms.js` restringe los caracteres que el usuario puede escribir (por ejemplo en IPs, MACs, números) en tiempo real. Adicionalmente, el campo de usuario en la pantalla de login (`public/js/auth.js`) tiene un filtro activo que solo permite caracteres válidos de correo (`a-zA-Z0-9.@_\-+`), bloqueando letras con acentos, espacios y la `ñ`/`Ñ`.
 
-* **Implementación con Helmet**:
-  `helmet` es un conjunto de middlewares de Express que configura cabeceras HTTP seguras de forma automatizada.
-  ```bash
-  npm install helmet
-  ```
+### 2.2 Controles que se Podrían Aplicar (A Futuro)
+* **Políticas de Seguridad de Contenido (CSP) con Helmet**:
+  Configurar el paquete `helmet` en el servidor Express para inyectar cabeceras CSP. Esto previene que se ejecuten inline scripts maliciosos.
   ```javascript
-  // Configuración recomendada en server.js:
   const helmet = require('helmet');
-  
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"], // Limitar la ejecución de scripts inline
-        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-        fontSrc: ["'self'", "https://fonts.gstatic.com"],
-        imgSrc: ["'self'", "data:"],
-        connectSrc: ["'self'"]
+        scriptSrc: ["'self'"], // Prohibir inline scripts no autorizados
+        styleSrc: ["'self'", "'unsafe-inline'"]
       }
     }
   }));
   ```
-
-### 2.2 Sanitización de Entradas en el Servidor (Backend)
-Dado que las solicitudes dinámicas son guardadas como objetos JSON en la base de datos (campo `datos` en la tabla `solicitudes`), es vital asegurarse de que ningún valor del JSON contenga scripts maliciosos antes de ser procesado o renderizado en otros clientes.
-
-* **Librería Recomendada**: `sanitize-html` o `dompurify` (con JSDOM en entorno Node).
-  ```bash
-  npm install sanitize-html
-  ```
+* **Sanitización de Entradas en el Servidor (Backend)**:
+  Aplicar una librería como `sanitize-html` en el backend antes de guardar el objeto de datos en la base de datos.
   ```javascript
   const sanitizeHtml = require('sanitize-html');
-  
-  // Utilidad para limpiar objetos JSON recibidos
-  function sanitizarValores(obj) {
-    if (typeof obj === 'string') {
-      return sanitizeHtml(obj, {
-        allowedTags: [], // Bloquea todo tipo de etiquetas HTML
-        allowedAttributes: {}
-      });
-    }
-    if (Array.isArray(obj)) {
-      return obj.map(item => sanitizarValores(item));
-    }
-    if (typeof obj === 'object' && obj !== null) {
-      const sanitized = {};
-      for (const [key, value] of Object.entries(obj)) {
-        sanitized[key] = sanitizarValores(value);
-      }
-      return sanitized;
-    }
-    return obj;
-  }
+  const sanitizedVal = sanitizeHtml(inputVal, { allowedTags: [], allowedAttributes: {} });
   ```
-* **Aplicación**: Utilizar esta función helper en las rutas antes de almacenar el objeto `datos` en la base de datos.
-
-### 2.3 Buenas Prácticas en el Frontend
-* **Asignaciones de Texto Seguro**: Mantener el estándar actual de utilizar `.textContent` o `.innerText` para representar datos suministrados por usuarios en elementos HTML dinámicos. Evitar el uso de `.innerHTML` o `document.write` con cadenas de texto directas.
-* **Escapado Preventivo de Cadenas**: Mantener el uso de la función `escaparHTML` para convertir caracteres de control en entidades HTML seguras antes de realizar concatenaciones de cadenas HTML dinámicas en el cliente.
+* **Banderas HTTP en Cookies de Sesión**:
+  Si en el futuro se migra a cookies para almacenar tokens de sesión:
+  - `HttpOnly`: Impide que JavaScript lea la cookie (mitiga robo de sesión por XSS).
+  - `Secure`: Garantiza transmisión exclusiva por HTTPS.
+  - `SameSite=Strict/Lax`: Previene ataques CSRF.
 
 ---
 
-## 3. Seguridad de Sesión y Autenticación
+## 3. Controles Adicionales de Seguridad
 
-### 3.1 Banderas de Seguridad en Cookies de Autenticación
-Si se decide migrar el almacenamiento del token JWT de `localStorage` a Cookies en el futuro para mayor protección:
-* **HttpOnly**: Evita que los scripts de JavaScript en el navegador accedan a la cookie (mitiga el robo de sesión ante ataques XSS exitosos).
-* **Secure**: Asegura que la cookie solo sea enviada sobre conexiones HTTPS cifradas.
-* **SameSite**: Configurado en `Strict` o `Lax` para evitar ataques de falsificación de petición en sitios cruzados (CSRF).
+### 3.1 Controles Actualmente Aplicados
+* **Hasheo de Contraseñas**:
+  La aplicación emplea algoritmos criptográficos para almacenar hashes de contraseñas de usuario en lugar de guardarlas en texto plano.
+* **Sesión Segura y Control de Inactividad**:
+  El frontend implementa un detector de inactividad que cierra automáticamente la sesión del usuario si no se detecta actividad en un período determinado.
 
-### 3.2 Rotación y Expiración Corta de Tokens (JWT)
-* Configurar una expiración de token de sesión corta (ej. 1 a 2 horas máximo).
-* Implementar tokens de refresco (*refresh tokens*) con almacenamiento seguro en base de datos para la renovación de sesiones sin necesidad de pedir las credenciales del usuario constantemente.
-
----
-
-## 4. Auditoría de Dependencias y Ciclo de Desarrollo Seguro
-
-El ecosistema de Node.js evoluciona constantemente y es fundamental verificar la seguridad de los paquetes de terceros.
-
-* **Auditoría de Vulnerabilidades**: Ejecutar periódicamente en el entorno de desarrollo el comando:
-  ```bash
-  npm audit
-  ```
-  Este comando compara las dependencias de tu archivo `package.json` contra la base de datos de vulnerabilidades conocidas de NPM y ayuda a corregirlas con `npm audit fix`.
-* **Analizadores Estáticos (Linters)**: Configurar *ESLint* con complementos como `eslint-plugin-security` para alertar al desarrollador en tiempo real sobre patrones de programación poco seguros (como expresiones regulares vulnerables o llamadas inseguras a eval).
+### 3.2 Controles que se Podrían Aplicar (A Futuro)
+* **Auditoría Automatizada (`npm audit`)**:
+  Ejecutar periódicamente en el flujo de desarrollo para identificar y actualizar paquetes con vulnerabilidades conocidas.
+* **Analizadores de Código Estático (Linters)**:
+  Configurar ESLint con complementos de seguridad como `eslint-plugin-security` para alertar en tiempo de diseño sobre patrones poco seguros.
