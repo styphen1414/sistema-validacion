@@ -1,0 +1,54 @@
+======================================================================
+SISTEMA DE VALIDACIÓN TÉCNICA (SVT) - NOTAS DE CAMBIOS VERSIÓN 1.5.8
+======================================================================
+
+Fecha: 30 de Junio, 2026
+Autor: Antigravity AI & David Paredes
+Versión: 1.5.8 (Deduplicación, Transacciones Robustas, Índices y Validación Backend)
+
+----------------------------------------------------------------------
+DESCRIPCIÓN GENERAL
+----------------------------------------------------------------------
+Esta versión menor consolida la corrección de duplicidades y errores menores, e implementa importantes optimizaciones de rendimiento en base de datos, robustez de transacciones y seguridad de entrada a través de validación rigurosa del lado del servidor.
+
+1. **Deduplicación en Envíos de Correo:**
+   - Remoción de las funciones auxiliares `evaluadorDeCondicion` y `generarCodigoSeguimiento` que estaban duplicadas localmente en `mailer.js`.
+   - Importación de la lógica centralizada desde `dbHelper.js` para asegurar la uniformidad en los formatos de códigos de seguimiento en todo el sistema.
+
+2. **Script de Diagnóstico de Base de Datos Corregido (`scratch/check_db.js`):**
+   - Corrección de la consulta SELECT en el script para adecuarla al esquema de base de datos actual (uso de la columna `correo` mediante `correo AS username` en vez de la columna física `username` eliminada).
+
+3. **Manejo de Transacciones SQL Robustecidas:**
+   - Envolvimiento de las llamadas a `client.query('ROLLBACK')` dentro de bloques `try-catch` internos en `services/solicitudService.js` y `services/usuarioService.js`.
+   - Evita el enmascaramiento de errores reales en base de datos si ocurre un error de red durante la reversión de una transacción.
+
+4. **Índices Secundarios de Rendimiento (PostgreSQL):**
+   - Inyección de tres nuevos índices en `dbMigrate.js`:
+     * `idx_usuarios_correo_lower`: Índice funcional en `LOWER(correo)` para optimizar el login case-insensitive.
+     * `idx_solicitudes_estado`: Para acelerar el filtrado por estado de la bandeja de solicitudes.
+     * `idx_solicitudes_areas_validadoras` (Índice GIN): Optimiza drásticamente las consultas de contención sobre el campo JSONB de áreas validadoras asociadas a cada solicitud.
+
+5. **Validación de Campos Obligatorios en el Backend (Defensa en Profundidad):**
+   - Modificación de la función `validarDatos` en `routes/solicitudes.js`. Al guardar cambios o crear solicitudes para su revisión formal (estado distinto de borrador), el backend valida estrictamente que los campos requeridos, checkboxes obligatorios y tablas dinámicas (junto con sus respectivas columnas configuradas como obligatorias) no se guarden vacíos.
+
+----------------------------------------------------------------------
+CAMBIOS REALIZADOS
+----------------------------------------------------------------------
+
+1. Base de Datos, Migración y Servicios (dbMigrate.js, services/solicitudService.js, services/usuarioService.js):
+   - Adición de sentencias de indexación SQL en `dbMigrate.js`.
+   - Ajuste de lógica de control en bloques catch de base de datos para manejar fallos de ROLLBACK sin interferir con la excepción original.
+
+2. Enrutadores del Servidor (routes/solicitudes.js, mailer.js):
+   - Importación de `generarCodigoSeguimiento` en `mailer.js`.
+   - Reestructuración de `validarDatos` para soportar el parámetro `validarRequeridos` en `solicitudes.js`.
+
+3. Scripts de Diagnóstico (scratch/check_db.js):
+   - Modificación de consulta SQL de usuarios.
+
+----------------------------------------------------------------------
+CÓMO DESPLEGAR / ACTUALIZAR
+----------------------------------------------------------------------
+1. Aplicar la versión '1.5.8' mediante git (`git checkout tags/1.5.8` o `git pull origin main`).
+2. Iniciar el servidor mediante 'npm run dev' o 'npm start'.
+======================================================================

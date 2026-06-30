@@ -93,7 +93,11 @@ async function crearSolicitud(solicitanteId, tipoSolicitudId, datos, estado, are
     await client.query('COMMIT');
     return solicitud;
   } catch (error) {
-    await client.query('ROLLBACK');
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('Error al hacer rollback en crearSolicitud:', rollbackError);
+    }
     throw error;
   } finally {
     client.release();
@@ -356,7 +360,11 @@ async function actualizarSolicitud(id, datos, nuevoEstado, inicializarAprobacion
     await client.query('COMMIT');
     return { dispararCorreo };
   } catch (error) {
-    await client.query('ROLLBACK');
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('Error al hacer rollback en actualizarSolicitud:', rollbackError);
+    }
     throw error;
   } finally {
     client.release();
@@ -410,7 +418,11 @@ async function aprobarSeccion(solicitudId, tecnicoId, area, observacion) {
     await client.query('COMMIT');
     return { esAprobacionTotal };
   } catch (error) {
-    await client.query('ROLLBACK');
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('Error al hacer rollback en aprobarSeccion:', rollbackError);
+    }
     throw error;
   } finally {
     client.release();
@@ -447,7 +459,11 @@ async function registrarObservacionYReabrir(solicitudId, area, autorId, texto) {
 
     await client.query('COMMIT');
   } catch (error) {
-    await client.query('ROLLBACK');
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('Error al hacer rollback en registrarObservacionYReabrir:', rollbackError);
+    }
     throw error;
   } finally {
     client.release();
@@ -572,7 +588,11 @@ async function reabrirProcesoRevision(solicitudId, autorArea, autorId, texto, ar
 
     await client.query('COMMIT');
   } catch (error) {
-    await client.query('ROLLBACK');
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('Error al hacer rollback en reabrirProcesoRevision:', rollbackError);
+    }
     throw error;
   } finally {
     client.release();

@@ -94,7 +94,11 @@ async function desactivarUsuario(id) {
     await client.query('COMMIT');
     return id;
   } catch (error) {
-    await client.query('ROLLBACK');
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('Error al hacer rollback en desactivarUsuario:', rollbackError);
+    }
     throw error;
   } finally {
     client.release();
@@ -185,7 +189,11 @@ async function actualizarTipoSolicitud(id, formObj, inicializarAprobaciones) {
     await client.query('COMMIT');
     return result.rows[0];
   } catch (error) {
-    await client.query('ROLLBACK');
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('Error al hacer rollback en actualizarTipoSolicitud:', rollbackError);
+    }
     throw error;
   } finally {
     client.release();

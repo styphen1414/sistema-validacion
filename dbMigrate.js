@@ -149,6 +149,9 @@ async function ejecutarMigraciones() {
       CREATE INDEX IF NOT EXISTS idx_solicitudes_tipo ON solicitudes(tipo_solicitud_id);
       CREATE INDEX IF NOT EXISTS idx_aprobaciones_solicitud_id ON aprobaciones(solicitud_id);
       CREATE INDEX IF NOT EXISTS idx_observaciones_solicitud_id ON observaciones(solicitud_id);
+      CREATE INDEX IF NOT EXISTS idx_usuarios_correo_lower ON usuarios (LOWER(correo));
+      CREATE INDEX IF NOT EXISTS idx_solicitudes_estado ON solicitudes(estado);
+      CREATE INDEX IF NOT EXISTS idx_solicitudes_areas_validadoras ON solicitudes USING gin (areas_validadoras);
 
       -- 13. Añadir la columna activo a la tabla usuarios para borrado lógico
       ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS activo BOOLEAN NOT NULL DEFAULT TRUE;

@@ -7,7 +7,7 @@ const { autenticar } = require('../middlewares/auth');
 const { inicializarAprobaciones, generarCodigoSeguimiento } = require('../dbHelper');
 
 
-function validarDatos(campos, datos) {
+function validarDatos(campos, datos, validarRequeridos = false) {
   if (!campos || !Array.isArray(campos) || !datos) return null;
 
   const idRegex = /^\d{10}$/;
@@ -19,6 +19,25 @@ function validarDatos(campos, datos) {
     if (['title', 'subtitle', 'paragraph'].includes(campo.type)) continue;
 
     const valor = datos[campo.name];
+    const campoRequired = campo.required === true || campo.required === 'true';
+
+    // Validación de campo requerido en envío formal
+    if (validarRequeridos && campoRequired) {
+      if (campo.type === 'checkbox') {
+        const isChecked = valor === true || valor === 'true' || valor === 'X' || valor === 'Sí' || valor === 'on';
+        if (!isChecked) {
+          return `El campo obligatorio "${campo.label}" debe estar seleccionado.`;
+        }
+      } else if (['grid', 'fixed_grid', 'fixed_grid_dynamic_cols', 'fixed_grid_fixed_cols'].includes(campo.type)) {
+        if (!Array.isArray(valor) || valor.length === 0) {
+          return `La tabla "${campo.label}" debe tener al menos un registro.`;
+        }
+      } else {
+        if (valor === undefined || valor === null || String(valor).trim() === '') {
+          return `El campo obligatorio "${campo.label}" no puede estar vacío.`;
+        }
+      }
+    }
 
     // Validar IP si está presente
     if (campo.type === 'ip' && valor !== undefined && valor !== null && String(valor).trim() !== '') {
@@ -76,7 +95,15 @@ function validarDatos(campos, datos) {
         for (const col of columns) {
           const colName = typeof col === 'object' ? col.name : col;
           const colType = typeof col === 'object' ? col.type : 'text';
+          const colRequired = typeof col === 'object' ? (col.required === true || col.required === 'true') : false;
           const cellVal = row[colName];
+
+          // Validar columna requerida en la grilla
+          if (validarRequeridos && colRequired) {
+            if (cellVal === undefined || cellVal === null || String(cellVal).trim() === '') {
+              return `La columna "${colName}" en la tabla "${campo.label}" es obligatoria y no puede estar vacía.`;
+            }
+          }
 
           if (cellVal !== undefined && cellVal !== null && String(cellVal).trim() !== '') {
             const cellValTrim = String(cellVal).trim();
@@ -137,7 +164,7 @@ router.post('/', autenticar, async (req, res) => {
       return res.status(400).json({ error: 'El tipo de solicitud no existe.' });
     }
 
-    const validationError = validarDatos(tipo.campos, datos);
+    const validationError = validarDatos(tipo.campos, datos, estado !== 'borrador');
     if (validationError) {
       return res.status(400).json({ error: validationError });
     }
@@ -263,12 +290,12 @@ router.put('/:id', autenticar, async (req, res) => {
       return res.status(403).json({ error: 'No tienes permiso para modificar esta solicitud.' });
     }
 
-    const validationError = validarDatos(solicitud.campos, datos);
+    const nuevoEstado = (rol === 'solicitante' && enviar) ? 'en_revision' : solicitud.estado;
+
+    const validationError = validarDatos(solicitud.campos, datos, nuevoEstado !== 'borrador');
     if (validationError) {
       return res.status(400).json({ error: validationError });
     }
-
-    const nuevoEstado = (rol === 'solicitante' && enviar) ? 'en_revision' : solicitud.estado;
 
     const areasValidadoras = solicitudService.calcularAreasValidadoras(solicitud.campos, datos, solicitud.plantilla_areas_validadoras);
 
