@@ -36,8 +36,8 @@ Esta versión menor consolida la corrección de duplicidades y errores menores, 
    - Paginación inteligente y preventiva antes de renderizar grillas para evitar cabeceras de tablas huérfanas al final de una página que luego se duplican en la siguiente.
    - Paginación preventiva para títulos, subtítulos, párrafos y campos generales en la generación de PDFs.
 
-7. **Liberación Seleccionada de Técnicos al Reabrir:**
-   - Redefinición en `dbHelper.js` y `solicitudService.js`. La autoasignación de los técnicos se conserva al guardar cambios/corregir una observación. Los técnicos solo se desasignan (tecnico_id = NULL) cuando se ejecuta una reapertura formal de revisión del proceso.
+7. **Preservación de Aprobaciones y Asignaciones al Corregir / Liberación al Reabrir:**
+   - Redefinición en `dbHelper.js` y `solicitudService.js`. Las aprobaciones existentes y las asignaciones de analistas de las áreas se conservan intactas al guardar cambios/corregir una observación. Las aprobaciones se reinician a pendiente y las asignaciones se liberan (tecnico_id = NULL) únicamente cuando se ejecuta una reapertura formal del proceso de revisión (Reapertura).
 
 8. **Indicador de Observaciones en la Interfaz (Frontend):**
    - En el modal de detalles, el área técnica que registró la observación más reciente de la ronda se resalta automáticamente en color rojo con la etiqueta "OBSERVADO" e inyecta la observación, facilitando la lectura directa del solicitante.
