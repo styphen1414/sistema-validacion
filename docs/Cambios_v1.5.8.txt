@@ -31,6 +31,14 @@ Esta versión menor consolida la corrección de duplicidades y errores menores, 
 5. **Validación de Campos Obligatorios en el Backend (Defensa en Profundidad):**
    - Modificación de la función `validarDatos` en `routes/solicitudes.js`. Al guardar cambios o crear solicitudes para su revisión formal (estado distinto de borrador), el backend valida estrictamente que los campos requeridos, checkboxes obligatorios y tablas dinámicas (junto con sus respectivas columnas configuradas como obligatorias) no se guarden vacíos.
 
+6. **Mejoras Estructurales en Reportes PDF:**
+   - Altura dinámica para cabeceras y desactivación de elipsis fija en `pdfGenerator.js`. Evita que nombres largos de columnas en tablas queden cortados.
+   - Paginación inteligente y preventiva antes de renderizar grillas para evitar cabeceras de tablas huérfanas al final de una página que luego se duplican en la siguiente.
+   - Paginación preventiva para títulos, subtítulos, párrafos y campos generales en la generación de PDFs.
+
+7. **Liberación Seleccionada de Técnicos al Reabrir:**
+   - Redefinición en `dbHelper.js` y `solicitudService.js`. La autoasignación de los técnicos se conserva al guardar cambios/corregir una observación. Los técnicos solo se desasignan (tecnico_id = NULL) cuando se ejecuta una reapertura formal de revisión del proceso.
+
 ----------------------------------------------------------------------
 CAMBIOS REALIZADOS
 ----------------------------------------------------------------------

@@ -579,7 +579,7 @@ async function reabrirProcesoRevision(solicitudId, autorArea, autorId, texto, ar
       [nuevoEstado, JSON.stringify(campos), JSON.stringify(datosLimpios), solicitudId]
     );
 
-    await inicializarAprobaciones(solicitudId, areasValidadoras, client);
+    await inicializarAprobaciones(solicitudId, areasValidadoras, client, true);
 
     await client.query(
       'INSERT INTO observaciones (solicitud_id, area, autor_id, texto) VALUES ($1, $2, $3, $4)',

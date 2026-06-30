@@ -164,6 +164,12 @@ async function ejecutarMigraciones() {
       SET areas_validadoras = ts.areas_validadoras
       FROM tipos_solicitud ts
       WHERE s.tipo_solicitud_id = ts.id AND s.areas_validadoras IS NULL;
+
+      -- 15. Restaurar restricción check de estado en aprobaciones
+      ALTER TABLE aprobaciones DROP CONSTRAINT IF EXISTS aprobaciones_estado_check;
+      ALTER TABLE aprobaciones DROP CONSTRAINT IF EXISTS aprobaciones_estado_check1;
+      ALTER TABLE aprobaciones DROP CONSTRAINT IF EXISTS aprobaciones_estado_check2;
+      ALTER TABLE aprobaciones ADD CONSTRAINT aprobaciones_estado_check CHECK (estado IN ('pendiente', 'aprobado'));
     `);
 
     // Asegurar que todas las contraseñas queden hasheadas (seguridad).

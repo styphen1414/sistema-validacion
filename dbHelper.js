@@ -7,7 +7,7 @@ const db = require('./db');
  * @param {Array<string>} areas - Áreas validadoras configuradas para esta solicitud
  * @param {object} [client=db] - Cliente de base de datos para soporte de transacciones
  */
-async function inicializarAprobaciones(solicitudId, areas, client = db) {
+async function inicializarAprobaciones(solicitudId, areas, client = db, liberarAsignaciones = false) {
   try {
     // 1. Eliminar aprobaciones que ya no aplican para esta solicitud (dinámico)
     await client.query(
@@ -28,13 +28,23 @@ async function inicializarAprobaciones(solicitudId, areas, client = db) {
           [solicitudId, area, dirUserId]
         );
       } else {
-        await client.query(
-          `INSERT INTO aprobaciones (solicitud_id, area, estado, tecnico_id, fecha)
-           VALUES ($1, $2, 'pendiente', NULL, NULL)
-           ON CONFLICT (solicitud_id, area)
-           DO UPDATE SET estado = 'pendiente', tecnico_id = aprobaciones.tecnico_id, fecha = NULL, observacion = NULL`,
-          [solicitudId, area]
-        );
+        if (liberarAsignaciones) {
+          await client.query(
+            `INSERT INTO aprobaciones (solicitud_id, area, estado, tecnico_id, fecha)
+             VALUES ($1, $2, 'pendiente', NULL, NULL)
+             ON CONFLICT (solicitud_id, area)
+             DO UPDATE SET estado = 'pendiente', tecnico_id = NULL, fecha = NULL, observacion = NULL`,
+            [solicitudId, area]
+          );
+        } else {
+          await client.query(
+            `INSERT INTO aprobaciones (solicitud_id, area, estado, tecnico_id, fecha)
+             VALUES ($1, $2, 'pendiente', NULL, NULL)
+             ON CONFLICT (solicitud_id, area)
+             DO UPDATE SET estado = 'pendiente', tecnico_id = aprobaciones.tecnico_id, fecha = NULL, observacion = NULL`,
+            [solicitudId, area]
+          );
+        }
       }
     }
   } catch (error) {

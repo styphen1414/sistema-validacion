@@ -181,6 +181,7 @@ function generarReportePDFInternal(doc, solicitud, aprobaciones, directorSigner)
     if (campo.type === 'firmante_seccion' || campo.type === 'info_no_pdf') return; // Se omite en los detalles técnicos del PDF
     doc.x = 50; // Asegurar alineación izquierda reseteando la posición x
     if (campo.type === 'title') {
+      checkSpace(40);
       doc.moveDown(0.8);
       doc.font('Helvetica-Bold').fillColor('#1E3A8A').fontSize(10.5).text(campo.label.toUpperCase());
       // Dibujar una línea sutil bajo el título dinámico
@@ -189,18 +190,21 @@ function generarReportePDFInternal(doc, solicitud, aprobaciones, directorSigner)
       doc.moveDown(0.6);
       doc.fontSize(9.5); 
     } else if (campo.type === 'subtitle') {
+      checkSpace(30);
       doc.moveDown(0.5);
       doc.font('Helvetica-Bold').fillColor('#1E3A8A').fontSize(9.5).text(campo.label);
       doc.font('Helvetica');
       doc.moveDown(0.3);
       doc.fontSize(9.5);
     } else if (campo.type === 'paragraph') {
+      checkSpace(20);
       doc.moveDown(0.3);
       doc.font('Helvetica-Oblique').fillColor('#475569').fontSize(8.5).text(campo.label);
       doc.font('Helvetica');
       doc.moveDown(0.4);
       doc.fontSize(9.5);
     } else if (campo.type === 'grid' || campo.type === 'fixed_grid' || campo.type === 'fixed_grid_dynamic_cols' || campo.type === 'fixed_grid_fixed_cols') {
+      checkSpace(60); // Evitar que el título de la grilla quede huérfano de la tabla
       doc.moveDown(0.5);
       doc.font('Helvetica-Bold').fillColor('#1E3A8A').text(`${campo.label}:`);
       doc.moveDown(0.3);
@@ -290,10 +294,29 @@ function generarReportePDFInternal(doc, solicitud, aprobaciones, directorSigner)
           colWidths[idx] = w * scale;
         });
 
+        let maxHeaderHeight = 10;
+        columns.forEach((col, index) => {
+          const colName = typeof col === 'object' ? col.name : col;
+          const colW = colWidths[index];
+          const hHeight = doc.heightOfString(colName, {
+            width: colW - 10,
+            fontSize: 8
+          });
+          if (hHeight > maxHeaderHeight) {
+            maxHeaderHeight = hHeight;
+          }
+        });
+        const headerHeight = maxHeaderHeight + 10; // 5px de margen superior e inferior
+
+        // Evitar cabecera huérfana al final de la página (cabe cabecera + al menos 20px de fila de datos)
+        if (doc.y + headerHeight + 20 > doc.page.height - doc.page.margins.bottom) {
+          doc.addPage();
+        }
+
         const startY = doc.y;
 
         // Dibujar fondo de cabecera en azul marino ejecutivo
-        doc.rect(50, startY, 512, 18).fill('#1E3A8A');
+        doc.rect(50, startY, 512, headerHeight).fill('#1E3A8A');
         
         // Línea horizontal superior de la cabecera
         doc.lineWidth(0.5).strokeColor('#CBD5E1').moveTo(50, startY).lineTo(562, startY).stroke();
@@ -307,21 +330,19 @@ function generarReportePDFInternal(doc, solicitud, aprobaciones, directorSigner)
           const colW = colWidths[index];
 
           // Borde vertical izquierdo de la celda
-          doc.moveTo(headerX, startY).lineTo(headerX, startY + 18).stroke();
+          doc.moveTo(headerX, startY).lineTo(headerX, startY + headerHeight).stroke();
 
-          // Texto en color blanco
+          // Texto en color blanco (permitiendo wrapping natural)
           doc.font('Helvetica-Bold').fillColor('#FFFFFF').fontSize(8)
             .text(colName, headerX + 5, startY + 5, {
               width: colW - 10,
-              height: 10,
-              ellipsis: true,
               align: colType === 'checkbox' ? 'center' : 'left'
             });
           headerX += colW;
         });
-        doc.moveTo(562, startY).lineTo(562, startY + 18).stroke();
+        doc.moveTo(562, startY).lineTo(562, startY + headerHeight).stroke();
 
-        doc.y = startY + 18;
+        doc.y = startY + headerHeight;
 
         // Dibujar filas
         gridData.forEach(rowVal => {
@@ -379,7 +400,7 @@ function generarReportePDFInternal(doc, solicitud, aprobaciones, directorSigner)
             
             // Redibuja cabecera azul marino en nueva página
             const newStartY = doc.y;
-            doc.rect(50, newStartY, 512, 18).fill('#1E3A8A');
+            doc.rect(50, newStartY, 512, headerHeight).fill('#1E3A8A');
             // Línea superior de cabecera
             doc.lineWidth(0.5).strokeColor('#CBD5E1').moveTo(50, newStartY).lineTo(562, newStartY).stroke();
             
@@ -388,18 +409,16 @@ function generarReportePDFInternal(doc, solicitud, aprobaciones, directorSigner)
               const colName = typeof col === 'object' ? col.name : col;
               const colType = typeof col === 'object' ? col.type : 'text';
               const colW = colWidths[index];
-              doc.moveTo(freshX, newStartY).lineTo(freshX, newStartY + 18).stroke();
+              doc.moveTo(freshX, newStartY).lineTo(freshX, newStartY + headerHeight).stroke();
               doc.font('Helvetica-Bold').fillColor('#FFFFFF').fontSize(8)
                 .text(colName, freshX + 5, newStartY + 5, {
                   width: colW - 10,
-                  height: 10,
-                  ellipsis: true,
                   align: colType === 'checkbox' ? 'center' : 'left'
                 });
               freshX += colW;
             });
-            doc.moveTo(562, newStartY).lineTo(562, newStartY + 18).stroke();
-            doc.y = newStartY + 18;
+            doc.moveTo(562, newStartY).lineTo(562, newStartY + headerHeight).stroke();
+            doc.y = newStartY + headerHeight;
           }
 
           const currentY = doc.y;
@@ -476,12 +495,14 @@ function generarReportePDFInternal(doc, solicitud, aprobaciones, directorSigner)
         doc.font('Helvetica');
       }
     } else if (campo.type === 'firmante') {
+      checkSpace(25);
       const rawVal = datos[campo.name];
       const valor = formatearValorFirmanteBackend(rawVal);
       doc.font('Helvetica-Bold').fillColor('#1E3A8A').text(`${campo.label}: `, { continued: true })
         .font('Helvetica').fillColor('#334155').text(`${valor}`)
         .moveDown(0.5);
     } else if (campo.type === 'firmante_list') {
+      checkSpace(25);
       const listData = datos[campo.name];
       const valor = (Array.isArray(listData) && listData.length > 0)
         ? listData.map(v => formatearValorFirmanteBackend(v)).join(', ')
@@ -490,12 +511,14 @@ function generarReportePDFInternal(doc, solicitud, aprobaciones, directorSigner)
         .font('Helvetica').fillColor('#334155').text(`${valor}`)
         .moveDown(0.5);
     } else if (campo.type === 'text_list') {
+      checkSpace(25);
       const listData = datos[campo.name];
       const valor = (Array.isArray(listData) && listData.length > 0) ? listData.join(', ') : 'N/A';
       doc.font('Helvetica-Bold').fillColor('#1E3A8A').text(`${campo.label}: `, { continued: true })
         .font('Helvetica').fillColor('#334155').text(`${valor}`)
         .moveDown(0.5);
     } else if (campo.type === 'checkbox') {
+      checkSpace(25);
       const rawVal = datos[campo.name];
       const isChecked = (rawVal === 'X' || rawVal === true || rawVal === 'true');
       const displayVal = isChecked ? '[X]' : '[ ]';
@@ -503,6 +526,7 @@ function generarReportePDFInternal(doc, solicitud, aprobaciones, directorSigner)
         .font('Helvetica-Bold').fillColor(isChecked ? '#10B981' : '#64748B').text(`${displayVal}`)
         .moveDown(0.5);
     } else if (campo.type === 'date_range') {
+      checkSpace(25);
       const rawVal = datos[campo.name];
       let valor = 'N/A';
       if (rawVal) {
@@ -523,6 +547,7 @@ function generarReportePDFInternal(doc, solicitud, aprobaciones, directorSigner)
         .font('Helvetica').fillColor('#334155').text(`${valor}`)
         .moveDown(0.5);
     } else {
+      checkSpace(25);
       let valor = datos[campo.name] !== undefined && datos[campo.name] !== null && datos[campo.name] !== '' ? datos[campo.name] : 'N/A';
       if (campo.type === 'time' && valor !== 'N/A') {
         const parts = String(valor).split(':');
