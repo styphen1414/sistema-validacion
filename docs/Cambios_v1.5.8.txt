@@ -39,6 +39,9 @@ Esta versión menor consolida la corrección de duplicidades y errores menores, 
 7. **Liberación Seleccionada de Técnicos al Reabrir:**
    - Redefinición en `dbHelper.js` y `solicitudService.js`. La autoasignación de los técnicos se conserva al guardar cambios/corregir una observación. Los técnicos solo se desasignan (tecnico_id = NULL) cuando se ejecuta una reapertura formal de revisión del proceso.
 
+8. **Indicador de Observaciones en la Interfaz (Frontend):**
+   - En el modal de detalles, el área técnica que registró la observación más reciente de la ronda se resalta automáticamente en color rojo con la etiqueta "OBSERVADO" e inyecta la observación, facilitando la lectura directa del solicitante.
+
 ----------------------------------------------------------------------
 CAMBIOS REALIZADOS
 ----------------------------------------------------------------------

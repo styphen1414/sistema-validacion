@@ -303,15 +303,29 @@ export async function verDetalle(id, isRefresh = false) {
       sol.aprobaciones.forEach(ap => {
         if (ap.area === 'director') return;
         const card = document.createElement('div');
-        card.className = `aprobacion-card ${ap.estado === 'aprobado' ? 'aprobado' : ''}`;
 
-        const fecha = ap.fecha ? new Date(ap.fecha).toLocaleDateString('es-ES') : '';
-        const revisor = ap.tecnico_nombre ? `por ${escaparHTML(ap.tecnico_nombre)}` : '';
-        const obsHtml = ap.observacion ? `<div class="aprobacion-obs"><strong>Obs:</strong> "${escaparHTML(ap.observacion)}"</div>` : '';
+        // Buscar si esta área fue la que observó la solicitud en esta ronda (la observación más reciente)
+        const ultimaObsGeneral = sol.observaciones && sol.observaciones.length > 0 ? sol.observaciones[0] : null;
+        const esAreaObservadora = sol.estado === 'observado' && ultimaObsGeneral && ultimaObsGeneral.area === ap.area;
 
-        const estadoTexto = ap.estado === 'pendiente' && ap.tecnico_nombre
-          ? 'ASIGNADO'
-          : (ap.estado === 'pendiente' ? 'PENDIENTE' : (ap.observacion ? 'APROBADO CON OBS.' : 'APROBADO'));
+        const isAprobado = ap.estado === 'aprobado';
+        card.className = `aprobacion-card ${isAprobado ? 'aprobado' : (esAreaObservadora ? 'observado' : '')}`;
+
+        let fecha = ap.fecha ? new Date(ap.fecha).toLocaleDateString('es-ES') : '';
+        let revisor = ap.tecnico_nombre ? `por ${escaparHTML(ap.tecnico_nombre)}` : '';
+        let obsHtml = ap.observacion ? `<div class="aprobacion-obs"><strong>Obs:</strong> "${escaparHTML(ap.observacion)}"</div>` : '';
+
+        if (esAreaObservadora && ultimaObsGeneral) {
+          fecha = new Date(ultimaObsGeneral.fecha).toLocaleDateString('es-ES');
+          revisor = `por ${escaparHTML(ultimaObsGeneral.autor_nombre)}`;
+          obsHtml = `<div class="aprobacion-obs"><strong>Obs:</strong> "${escaparHTML(ultimaObsGeneral.texto)}"</div>`;
+        }
+
+        const estadoTexto = esAreaObservadora
+          ? 'OBSERVADO'
+          : (ap.estado === 'pendiente' && ap.tecnico_nombre
+            ? 'ASIGNADO'
+            : (ap.estado === 'pendiente' ? 'PENDIENTE' : (ap.observacion ? 'APROBADO CON OBS.' : 'APROBADO')));
 
         const revisorInfo = (revisor || fecha) ? `<span class="revisor-info">${revisor} ${fecha}</span>` : '';
 

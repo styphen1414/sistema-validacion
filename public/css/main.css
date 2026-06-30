@@ -708,6 +708,23 @@ tr:hover td {
   background-color: #ECFDF5;
 }
 
+.aprobacion-card.aprobado .status-details strong {
+  color: var(--success-color);
+}
+
+.aprobacion-card.observado {
+  border-color: var(--danger-color);
+  background-color: #FEF2F2;
+}
+
+.aprobacion-card.observado .status-details strong {
+  color: var(--danger-color);
+}
+
+.aprobacion-card.observado .aprobacion-obs {
+  border-left-color: var(--danger-color);
+}
+
 .aprobacion-card .area-name {
   font-weight: 600;
   text-transform: uppercase;
