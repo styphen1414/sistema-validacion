@@ -1,0 +1,37 @@
+======================================================================
+SISTEMA DE VALIDACIÓN TÉCNICA (SVT) - NOTAS DE CAMBIOS VERSIÓN 1.5.7
+======================================================================
+
+Fecha: 30 de Junio, 2026
+Autor: Antigravity AI & David Paredes
+Versión: 1.5.7 (Optimización de Duplicidad en Mailer y Corrección de Script de Diagnóstico)
+
+----------------------------------------------------------------------
+DESCRIPCIÓN GENERAL
+----------------------------------------------------------------------
+Esta versión menor se enfoca en la limpieza y optimización del código del backend para mejorar la mantenibilidad del sistema, así como en la corrección de un error de base de datos en el script de prueba para diagnósticos de base de datos.
+
+1. **Eliminación de Duplicidad de Lógica de Códigos de Seguimiento:**
+   - Remoción de las declaraciones redundantes de las funciones `evaluadorDeCondicion` y `generarCodigoSeguimiento` dentro de `mailer.js`.
+   - Modificación para importar estas funciones directamente desde `dbHelper.js` donde ya se encontraban exportadas, asegurando que cualquier cambio futuro en la lógica de códigos de seguimiento se aplique uniformemente en los reportes PDF y en las notificaciones por correo.
+
+2. **Corrección de Columna Obsoleta en Script de Diagnóstico (`scratch/check_db.js`):**
+   - Corrección de la consulta SELECT en el script de prueba para que use la columna `correo` con el alias `username` (`correo AS username`), solucionando el fallo producido tras la eliminación física de la columna `username` en la versión anterior.
+
+----------------------------------------------------------------------
+CAMBIOS REALIZADOS
+----------------------------------------------------------------------
+
+1. Enrutadores y Envíos del Servidor Express (mailer.js):
+   - Importación de la lógica de código de seguimiento centralizada: `const { generarCodigoSeguimiento } = require('./dbHelper');`.
+   - Eliminación de la duplicación local de las funciones auxiliares de códigos de seguimiento.
+
+2. Scripts de Diagnóstico y Pruebas (scratch/check_db.js):
+   - Corrección de la consulta de base de datos para adecuarse al esquema actual que eliminó la columna `username`.
+
+----------------------------------------------------------------------
+CÓMO DESPLEGAR / ACTUALIZAR
+----------------------------------------------------------------------
+1. Aplicar la versión '1.5.7' mediante git (`git checkout tags/1.5.7` o `git pull origin main`).
+2. Iniciar el servidor mediante 'npm run dev' o 'npm start'.
+======================================================================
